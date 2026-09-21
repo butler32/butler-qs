@@ -4,23 +4,13 @@ import Quickshell
 import Quickshell.Hyprland
 import "../theme"
 import "../config"
+import "../services"
 
 // Иконки закреплённых приложений (Меню → Конфигурация → Иконки приложений).
 // Клик: запустить, а если окно уже есть — перейти к нему.
 Panel {
     id: root
     visible: Config.apps.pinned.length > 0
-
-    function norm(s) { return (s ?? "").toLowerCase().replace(/\.desktop$/, "").replace(/[^a-z0-9]/g, "") }
-
-    // окна приложения: по id .desktop, StartupWMClass или имени
-    function windowsOf(id, entry) {
-        const keys = [norm(id), norm(entry?.startupClass), norm(entry?.name)].filter(k => k.length > 1)
-        return Hyprland.toplevels.values.filter(t => {
-            const c = [norm(t.lastIpcObject?.class), norm(t.lastIpcObject?.initialClass)].filter(x => x.length > 1)
-            return c.some(x => keys.some(k => x === k || x.endsWith(k) || k.endsWith(x)))
-        })
-    }
 
     Repeater {
         model: Config.apps.pinned
@@ -32,7 +22,7 @@ Panel {
                 DesktopEntries.applications.values
                 return DesktopEntries.byId(modelData) ?? DesktopEntries.heuristicLookup(modelData)
             }
-            readonly property var wins: root.windowsOf(modelData, entry)
+            readonly property var wins: Windows.matching([modelData, entry?.startupClass, entry?.name])
             readonly property bool running: wins.length > 0
             readonly property bool focused: wins.some(w => w.activated)
 
@@ -62,10 +52,7 @@ Panel {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    if (cell.running) {
-                        const a = cell.wins[0].address
-                        Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + (a.startsWith("0x") ? a : "0x" + a) + "\" })")
-                    }
+                    if (cell.running) Windows.focus(cell.wins[0])
                     else if (cell.entry)
                         cell.entry.execute()
                 }

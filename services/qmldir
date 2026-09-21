@@ -1,3 +1,5 @@
 singleton Notifs 1.0 Notifs.qml
 singleton SysStats 1.0 SysStats.qml
 singleton NetInfo 1.0 NetInfo.qml
+singleton Windows 1.0 Windows.qml
+singleton Popups 1.0 Popups.qml

@@ -11,6 +11,11 @@ Singleton {
 
     readonly property var ws: adapter.workspaces
     readonly property var notifications: adapter.notifications
+    readonly property var media: adapter.media
+    readonly property var clock: adapter.clock
+    readonly property var apps: adapter.apps
+    readonly property var sysmon: adapter.sysmon
+    readonly property var network: adapter.network
 
     FileView {
         id: file
@@ -42,6 +47,33 @@ Singleton {
                 // true: пока курсор над любым уведомлением, таймеры всех остановлены
                 property bool pauseAllOnHover: false
             }
+            property JsonObject media: JsonObject {
+                property bool showPrevNext: true
+                // Показывать только плеер этого приложения (часть identity/desktop-entry,
+                // например "spotify"); пусто = любой, играющий в приоритете
+                property string pinnedApp: ""
+            }
+            property JsonObject clock: JsonObject {
+                property bool showDate: true
+                property bool weekStartsMonday: true
+                property bool showSeconds: false
+            }
+            property JsonObject apps: JsonObject {
+                // id .desktop-файлов приложений в виджете иконок; по умолчанию пусто
+                property var pinned: []
+            }
+            property JsonObject sysmon: JsonObject {
+                property MetricConfig cpuLoad: MetricConfig { mode: "always"; yellow: 60; red: 85 }
+                property MetricConfig cpuTemp: MetricConfig { mode: "yellow"; yellow: 70; red: 85 }
+                property MetricConfig gpuLoad: MetricConfig { mode: "always"; yellow: 60; red: 85 }
+                property MetricConfig gpuTemp: MetricConfig { mode: "yellow"; yellow: 70; red: 85 }
+                property MetricConfig ram: MetricConfig { mode: "always"; yellow: 70; red: 90 }
+                property MetricConfig vram: MetricConfig { mode: "yellow"; yellow: 70; red: 90 }
+            }
+            property JsonObject network: JsonObject {
+                // { name, network (имя NM-подключения), mode: "dhcp"|"static", ip, mask, gateway, dns }
+                property var profiles: []
+            }
         }
     }
 
@@ -50,5 +82,27 @@ Singleton {
         if (spec) icons[id] = spec
         else delete icons[id]
         ws.icons = icons
+    }
+
+    readonly property var metricIds: ["cpuLoad", "cpuTemp", "gpuLoad", "gpuTemp", "ram", "vram"]
+
+    // закрепление приложений в виджете иконок
+    function togglePinnedApp(id) {
+        const list = [...apps.pinned]
+        const i = list.indexOf(id)
+        if (i >= 0) list.splice(i, 1)
+        else list.push(id)
+        apps.pinned = list
+    }
+
+    // index = -1 — новый профиль
+    function saveNetworkProfile(index, profile) {
+        const list = [...network.profiles]
+        if (index >= 0 && index < list.length) list[index] = profile
+        else list.push(profile)
+        network.profiles = list
+    }
+    function deleteNetworkProfile(index) {
+        network.profiles = network.profiles.filter((_, i) => i !== index)
     }
 }

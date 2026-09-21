@@ -1,1 +1,2 @@
 singleton Config 1.0 Config.qml
+MetricConfig 1.0 MetricConfig.qml

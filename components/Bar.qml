@@ -14,17 +14,28 @@ PanelWindow {
         anchors.fill: parent
         anchors.margins: Theme.barMargin
 
-        Workspaces { anchors.left: parent.left }
+        RowLayout {
+            anchors.left: parent.left
+            spacing: Theme.gap
+            Workspaces {}
+            AppDock {}
+            Media {}
+        }
+
         Clock { anchors.centerIn: parent }
 
         RowLayout {
             anchors.right: parent.right
             spacing: Theme.gap
+            SysMon {}
+            Network {}
+            Bluetooth {}
+            Battery {}
             Language {}
             Mixer {}
             Panel {
                 implicitWidth: Theme.barHeight
-                Label { text: "\uf0c9"; Layout.alignment: Qt.AlignCenter }
+                Label { text: ""; Layout.alignment: Qt.AlignCenter }
                 overlay: MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor

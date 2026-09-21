@@ -15,6 +15,8 @@ Panel {
     readonly property var audio: sink?.audio ?? null
     readonly property real volume: audio?.volume ?? 0
     readonly property bool muted: audio?.muted ?? true
+    // «беззвучно»: выключен или громкость 0 — значок красный
+    readonly property bool silent: muted || volume < 0.005
 
     // Списки для окна. Узлы появляются/исчезают (потоки приложений — постоянно),
     // поэтому это простые массивы, пересобираемые целиком.
@@ -29,8 +31,8 @@ Panel {
     implicitWidth: Theme.barHeight
     Label {
         Layout.alignment: Qt.AlignCenter
-        text: root.muted ? "" : root.volume < 0.34 ? "" : ""
-        color: root.muted ? Theme.danger : Theme.accent
+        text: root.silent ? "" : root.volume < 0.34 ? "" : ""
+        color: root.silent ? Theme.danger : Theme.accent
     }
 
     overlay: MouseArea {

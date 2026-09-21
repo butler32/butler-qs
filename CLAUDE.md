@@ -18,6 +18,8 @@ qs -c butler ipc call theme set sharp      # soft | sharp | paper | cycle | get
 qs -c butler ipc call i18n set en          # ru | en | toggle | get
 ```
 
+Settings and language live in `~/.local/state/quickshell/by-shell/butler/` — the shell ID is pinned by `//@ pragma ShellId butler` in `shell.qml`, so state is shared no matter how it is launched (`-c butler`, `-p <path>`). Never remove that pragma: without it every launch path gets its own state dir and settings appear to reset.
+
 To check visuals: `grim -g "X,Y WxH" file.png` and read the image.
 
 ## Layout
@@ -26,7 +28,8 @@ To check visuals: `grim -g "X,Y WxH" file.png` and read the image.
 - `theme/` — `Theme` singleton (all style tokens) + `ThemeDef` (one theme's values). Themes are `ThemeDef` blocks inside `Theme.qml`.
 - `i18n/` — `I18n` singleton with the `ru` / `en` dictionaries. Language is persisted via `Quickshell.statePath("lang")`.
 - `config/` — `Config` singleton: persisted bar settings (JSON in the shell state dir). Edited only through the menu.
-- `services/` — background services (`Notifs`: marks workspaces whose apps sent notifications, via passive `dbus-monitor`, so it never competes with a notification daemon).
+- `services/` — `Notifs`: the notification daemon (`NotificationServer`) + on-screen queue (`shown` / `waiting`) + workspace notification marks. State only; drawing is in `components/notifications/`.
+- `components/notifications/` — popup window, `NotificationCard`, and `frames/<Name>Frame.qml` (window shapes).
 - `components/` — `Panel` (base "window" of the bar), `Label`, `Bar`, widgets (`Workspaces`, `Clock`, `Language`, `Mixer`), `Menu` (window + navigation), `MenuPages` (menu content).
 
 Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed there — register new types/singletons in it.
@@ -49,6 +52,10 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 - Adding an option = field in `Config.qml` + item in `MenuPages.qml` (`cfg*` pages; `toggleItem` / `numberItem` helpers, or a page for choices) + `cfg.*` keys in both languages + the widget reading `Config.<section>`.
 - Widgets must react to `Config` changes live (bind to it, don't copy values once).
 - Theme and language are separate top-level menu entries.
+
+### Notification shapes (extensibility)
+- The popup's shape is a **frame**: `components/notifications/frames/<Name>Frame.qml`, selected by the theme token `notifFrame` (`"panel"` → `PanelFrame.qml`). Contract is documented in `PanelFrame.qml` (fills the card, exposes `inset*` for content, `critical`). To add a new silhouette (e.g. a cat face), add a frame file and set `notifFrame` in a theme — don't special-case shapes in `NotificationCard`.
+- Notification behaviour (queue size, timeout, fade) lives in `Config.notifications` and Menu → Configuration → Notifications. Critical notifications never auto-hide.
 
 ### Menu
 - Content lives in `MenuPages.qml`: a page is a function returning items (`name`, `comment`, `icon`/`iconSource`, `page`, `run`, `keepOpen`, `active`, `danger`, `keywords`, plus `value`/`adjust` for ←/→ settings and `backAfter`). Page ids may carry an argument: `cfg.ws.icon:5`. Add a section with a `page: "id"` item in `root()`, a `case` in `build()` and a `menu.title.<id>` key.

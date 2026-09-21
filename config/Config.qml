@@ -10,6 +10,7 @@ Singleton {
     id: root
 
     readonly property var ws: adapter.workspaces
+    readonly property var notifications: adapter.notifications
 
     FileView {
         id: file
@@ -30,6 +31,14 @@ Singleton {
                 // Показывать воркспейсы с окнами даже в свёрнутом виде
                 property bool showOccupied: true
                 property bool notifyHighlight: true
+            }
+            property JsonObject notifications: JsonObject {
+                // Сколько уведомлений одновременно на экране; остальные ждут в очереди
+                property int maxVisible: 4
+                // Секунд до автоисчезания, 0 = никогда (critical не исчезают сами)
+                property int timeoutSec: 5
+                // Длительность затухания opacity 1 → 0, мс
+                property int fadeMs: 400
             }
         }
     }

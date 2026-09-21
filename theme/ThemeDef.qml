@@ -13,6 +13,7 @@ QtObject {
     property color accent: "#89b4fa"
     property color accentText: "#11111b"
     property color danger: "#f38ba8"
+    property color warn: "#f9e2af"        // жёлтый порог (нагрузка, батарея)
     property color notify: "#fab387"      // воркспейс с уведомлением
 
     // --- формы ---

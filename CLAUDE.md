@@ -64,6 +64,7 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 
 ### Bar popups
 - Widget popups are `BarPopup { anchorItem: root; screen: root.QsWindow.window?.screen ?? null; ipcName: "..." }` with content placed inside; open with `popup.toggle()` (not `open = !open`: it guards against the click that closes the popup re-opening it). Only one popup is open at a time (`services/Popups`).
+- The main menu (`Menu.qml`) uses the same mechanism (own catcher, `OnDemand` + grab); any new overlay window that must close on outside click must too.
 - Click-outside-to-close is done by a full-screen transparent "catcher" window on the `Top` layer under the popup (`Overlay`), plus `HyprlandFocusGrab`. The popup uses `keyboardFocus: OnDemand`, **not** `Exclusive` — with Exclusive, Hyprland doesn't deliver pointer clicks to other surfaces and outside-click closing silently stops working. The catcher starts below the reserved top area so all panels (ours and the other bar) stay clickable; the popup's top offset also comes from the monitor's `reserved` area, since Overlay ignores exclusive zones.
 - Don't use `Shortcut` in windows (segfaults on hot reload); Esc is handled via `Keys.onEscapePressed`.
 - Popups are addressable over IPC for testing: `qs -c butler ipc call popup.<clock|network|bluetooth|battery> toggle`.

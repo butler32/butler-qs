@@ -16,7 +16,8 @@ PanelWindow {
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    // OnDemand + grab, а не Exclusive: при Exclusive Hyprland не отдаёт клики другим поверхностям
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     WlrLayershell.namespace: "qs-menu"
 
     implicitWidth: Theme.menuWidth
@@ -26,6 +27,25 @@ PanelWindow {
         windows: [win]
         active: true
         onCleared: win.close()
+    }
+
+    // Прозрачный слой на весь экран под меню: клик в любой точке вне меню закрывает его.
+    // Область панелей (наша и чужие) не перекрываем — как в BarPopup.
+    PanelWindow {
+        screen: win.screen
+        color: "transparent"
+        anchors { top: true; bottom: true; left: true; right: true }
+        margins.top: Hyprland.monitorFor(win.screen)?.lastIpcObject?.reserved?.[1] ?? 0
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        WlrLayershell.namespace: "qs-menu-catcher"
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+            onPressed: win.close()
+        }
     }
 
     MenuPages { id: pages }

@@ -22,6 +22,8 @@ Settings and language live in `~/.local/state/quickshell/by-shell/butler/` — t
 
 Process names are `qs` (daemon launcher) and `quickshell`; to kill everything use `pkill -x qs; pkill -x quickshell` (`qs kill` only stops one instance, and a hot-reload crash auto-restarts another copy — check `pgrep -a qs` before restarting, or you get stacked bars).
 
+To test interactions: `ydotoold --socket-path=/tmp/ydotool.sock &` then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool click 0xC0` (left click at the current cursor; move it with `hyprctl dispatch 'hl.dsp.cursor.move({ x = .., y = .. })'`, Esc is `ydotool key 1:1 1:0`). This clicks on the real desktop — restore workspace/focus afterwards.
+
 To check visuals: `grim -g "X,Y WxH" file.png` and read the image.
 
 ## Layout
@@ -61,7 +63,8 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 - Notification behaviour (queue size, timeout, fade) lives in `Config.notifications` and Menu → Configuration → Notifications. Critical notifications never auto-hide.
 
 ### Bar popups
-- Widget popups are `BarPopup { anchorItem: root; screen: root.QsWindow.window?.screen ?? null; ipcName: "..." }` with content placed inside; open with `popup.toggle()` (not `open = !open`: it guards the click that closes the focus grab). Popups live on the `Top` layer with `ExclusionMode.Normal` so they sit under *all* panels (there is another bar above ours). Don't switch them to Overlay/Ignore — they would overlap the bar.
+- Widget popups are `BarPopup { anchorItem: root; screen: root.QsWindow.window?.screen ?? null; ipcName: "..." }` with content placed inside; open with `popup.toggle()` (not `open = !open`: it guards against the click that closes the popup re-opening it). Only one popup is open at a time (`services/Popups`).
+- Click-outside-to-close is done by a full-screen transparent "catcher" window on the `Top` layer under the popup (`Overlay`), plus `HyprlandFocusGrab`. The popup uses `keyboardFocus: OnDemand`, **not** `Exclusive` — with Exclusive, Hyprland doesn't deliver pointer clicks to other surfaces and outside-click closing silently stops working. The catcher starts below the reserved top area so all panels (ours and the other bar) stay clickable; the popup's top offset also comes from the monitor's `reserved` area, since Overlay ignores exclusive zones.
 - Don't use `Shortcut` in windows (segfaults on hot reload); Esc is handled via `Keys.onEscapePressed`.
 - Popups are addressable over IPC for testing: `qs -c butler ipc call popup.<clock|network|bluetooth|battery> toggle`.
 - Don't use `Quickshell.Networking` (0.3.0): it segfaulted the whole shell right after NetworkManager's "Access point removed" while our Wi-Fi list held its objects. Wi-Fi/IP data comes from `nmcli` via `services/NetInfo` as plain JS objects. In general, prefer plain snapshots over QObject lists from Quickshell services in `ScriptModel`/`Repeater` delegates. Also note: V4 JS has no regex lookbehind.

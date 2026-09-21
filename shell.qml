@@ -5,18 +5,21 @@ import "theme"
 import "i18n"
 
 ShellRoot {
+    id: shell
+    property string menuPage: "root"
+
     Variants {
         model: Quickshell.screens
         Bar {
             required property var modelData
             screen: modelData
-            onMenuRequested: menuLoader.active = true
+            onMenuRequested: { shell.menuPage = "root"; menuLoader.active = true }
         }
     }
 
     LazyLoader {
         id: menuLoader
-        Menu { onClose: menuLoader.active = false }
+        Menu { initialPage: shell.menuPage; onClose: menuLoader.active = false }
     }
 
     // qs -p . ipc call theme set sharp | cycle | get
@@ -30,8 +33,9 @@ ShellRoot {
     // qs -c butler ipc call menu toggle | open | close
     IpcHandler {
         target: "menu"
-        function toggle(): void { menuLoader.active = !menuLoader.active }
-        function open(): void { menuLoader.active = true }
+        function toggle(): void { shell.menuPage = "root"; menuLoader.active = !menuLoader.active }
+        function open(): void { shell.menuPage = "root"; menuLoader.active = true }
+        function page(id: string): void { menuLoader.active = false; shell.menuPage = id; menuLoader.active = true }
         function close(): void { menuLoader.active = false }
     }
 

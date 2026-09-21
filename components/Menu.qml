@@ -30,7 +30,8 @@ PanelWindow {
 
     MenuPages { id: pages }
 
-    property var pageStack: ["root"]
+    property string initialPage: "root"   // для `ipc call menu page <id>`
+    property var pageStack: initialPage === "root" ? ["root"] : ["root", initialPage]
     readonly property string pageId: pageStack[pageStack.length - 1]
     readonly property string breadcrumb: pageStack.map(id => pages.title(id)).join("  ›  ")
     property string query: ""
@@ -59,13 +60,30 @@ PanelWindow {
         if (pageStack.length > 1) { pageStack = pageStack.slice(0, -1); input.text = "" }
         else win.close()
     }
+    // Смена настроек пересобирает модель и сбрасывает выбор — возвращаем его на место
+    function keepSelection(fn) {
+        const i = list.currentIndex
+        fn()
+        Qt.callLater(() => list.currentIndex = Math.max(0, Math.min(i, list.count - 1)))
+    }
     function activate(it) {
         if (!it) return
         if (it.page) goto(it.page)
-        else {
+        else if (it.backAfter) {
             if (it.run) it.run()
-            if (!it.keepOpen) win.close()
+            pageStack = pageStack.slice(0, Math.max(1, pageStack.length - it.backAfter))
+            input.text = ""
+        } else if (it.keepOpen) {
+            keepSelection(() => { if (it.run) it.run() })
+        } else {
+            if (it.run) it.run()
+            win.close()
         }
+    }
+    function adjust(d) {
+        const it = list.model[list.currentIndex]
+        if (it?.adjust) { keepSelection(() => it.adjust(d)); return true }
+        return false
     }
 
     Rectangle {
@@ -116,6 +134,8 @@ PanelWindow {
                             if (e.key === Qt.Key_Escape) win.close()
                             else if (e.key === Qt.Key_Backspace && input.text === "") win.back()
                             else if (e.key === Qt.Key_Left && (e.modifiers & Qt.AltModifier)) win.back()
+                            else if (e.key === Qt.Key_Left && win.adjust(-1)) {}
+                            else if (e.key === Qt.Key_Right && win.adjust(1)) {}
                             else if (e.key === Qt.Key_Down || (ctrl && (e.key === Qt.Key_N || e.key === Qt.Key_J))) list.incrementCurrentIndex()
                             else if (e.key === Qt.Key_Up || (ctrl && (e.key === Qt.Key_P || e.key === Qt.Key_K))) list.decrementCurrentIndex()
                             else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) win.activate(list.model[list.currentIndex])
@@ -184,6 +204,11 @@ PanelWindow {
                             opacity: 0.8
                             elide: Text.ElideRight
                             font.pixelSize: Theme.fontSize - 2
+                        }
+                        Label {
+                            visible: !!item.modelData.value
+                            text: (item.modelData.adjust ? "‹ " : "") + (item.modelData.value ?? "") + (item.modelData.adjust ? " ›" : "")
+                            color: item.selected ? Theme.accentText : Theme.accent
                         }
                         Label {
                             visible: !!item.modelData.page || !!item.modelData.active

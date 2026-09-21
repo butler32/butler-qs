@@ -34,6 +34,7 @@ To check visuals: `grim -g "X,Y WxH" file.png` and read the image.
 - `config/` — `Config` singleton: persisted bar settings (JSON in the shell state dir). Edited only through the menu.
 - `services/` — `Notifs`: the notification daemon (`NotificationServer`) + on-screen queue (`shown` / `waiting`) + workspace notification marks. State only; drawing is in `components/notifications/`.
 - `components/` also holds the bar widgets: `Workspaces`, `AppDock` (pinned app icons), `Media` (MPRIS), `Clock` (+`CalendarPopup`), `SysMon` (data: `services/SysStats` + `scripts/sysstat.sh`), `Network` (+`WifiRow`, `NetworkProfiles`, `NetworkProfileEditor`; nmcli logic in `services/NetInfo`), `Bluetooth` (+`BtDeviceRow`), `Battery`, `Language`, `Mixer` (icon + popup; `VolumeRow`, `DevicePicker`). Reusable UI blocks: `BarPopup`, `Chip`, `Field`, `Slider`.
+- OSD: `services/Osd` (state; volume/mic follow PipeWire by themselves, brightness/Caps Lock arrive via `qs -c butler ipc call osd event <brightness|capslock> <value>` from `~/.config/hypr-theme/bin/osd-*`) + `components/OsdPopup`. Don't name an IPC function `show` — it collides with the `qs ipc show` subcommand.
 - `components/notifications/` — popup window, `NotificationCard`, and `frames/<Name>Frame.qml` (window shapes).
 - `components/` — `Panel` (base "window" of the bar), `Label`, `Bar`, widgets (`Workspaces`, `Clock`, `Language`, `Mixer`), `Menu` (window + navigation), `MenuPages` (menu content).
 
@@ -81,7 +82,7 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 
 ### Hyprland
 - Hyprland ≥ 0.55 uses a Lua config. `Hyprland.dispatch()` takes a Lua expression: `Hyprland.dispatch("hl.dsp.focus({ workspace = 3 })")`, not the old `"workspace 3"` syntax.
-- Autostart: `qs -c butler -d` in `~/.config/hypr/configs/autostart.lua` (replaced ags `mybar` and `notifd`; the ags launcher/OSD are still used by their binds and are not replaced).
+- Autostart: `qs -c butler -d` in `~/.config/hypr/configs/autostart.lua` (replaced ags `mybar` and `notifd`; the ags launcher is still used by `SUPER+R` and is not replaced; the ags OSD was replaced by the qs OSD).
 - The Hyprland config lives in `~/.config/hypr` (binds in `configs/keybindings.lua`, use the `unless_dota(...)` wrapper like the other binds).
 
 ## Git

@@ -39,6 +39,8 @@ Singleton {
                 property int timeoutSec: 5
                 // Длительность затухания opacity 1 → 0, мс
                 property int fadeMs: 400
+                // true: пока курсор над любым уведомлением, таймеры всех остановлены
+                property bool pauseAllOnHover: false
             }
         }
     }

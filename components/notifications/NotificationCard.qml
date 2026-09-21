@@ -5,6 +5,7 @@ import Quickshell.Services.Notifications
 import ".."
 import "../../theme"
 import "../../config"
+import "../../services"
 
 // Одно уведомление: фон-форма (см. frames/PanelFrame.qml) + иконка приложения,
 // имя приложения, заголовок и текст. Сам управляет своим временем жизни.
@@ -54,11 +55,18 @@ Item {
 
     Timer {
         interval: card.cfg.timeoutSec * 1000
-        // на паузе, пока курсор над уведомлением; срочные сами не исчезают
-        running: card.cfg.timeoutSec > 0 && !card.critical && !card.leaving && !hover.hovered
+        // на паузе, пока курсор над уведомлением (или над любым, если включено
+        // pauseAllOnHover); срочные сами не исчезают
+        running: card.cfg.timeoutSec > 0 && !card.critical && !card.leaving && !card.paused
         onTriggered: card.leave()
     }
-    HoverHandler { id: hover }
+    readonly property bool paused: hover.hovered || (cfg.pauseAllOnHover && Notifs.hoverCount > 0)
+    HoverHandler {
+        id: hover
+        onHoveredChanged: Notifs.hoverCount += hovered ? 1 : -1
+    }
+    // карточка исчезла под курсором — не оставляем счётчик завышенным
+    Component.onDestruction: if (hover.hovered) Notifs.hoverCount -= 1
     MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor

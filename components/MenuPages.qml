@@ -194,6 +194,8 @@ QtObject {
             numberItem(I18n.tr("cfg.notif.fade"), I18n.tr("cfg.notif.fade.hint"), "\uf042",
                        () => c.fadeMs, v => c.fadeMs = v, 0, 3000, 100,
                        v => v + " " + I18n.tr("unit.ms")),
+            toggleItem(I18n.tr("cfg.notif.pauseall"), I18n.tr("cfg.notif.pauseall.hint"), "\uf04c",
+                       () => c.pauseAllOnHover, v => c.pauseAllOnHover = v),
             { name: I18n.tr("cfg.notif.test"), comment: I18n.tr("cfg.notif.test.hint"), icon: "\uf1d8", keepOpen: true,
               run: () => Quickshell.execDetached(["notify-send", "-a", "Quickshell", I18n.tr("cfg.notif.test.title"), I18n.tr("cfg.notif.test.body")]) }
         ]

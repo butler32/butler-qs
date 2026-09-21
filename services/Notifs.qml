@@ -17,6 +17,7 @@ Singleton {
     property var shown: []
     property var waiting: []
     property var pending: ({})   // id воркспейса → true
+    property int hoverCount: 0   // сколько уведомлений сейчас под курсором
 
     NotificationServer {
         keepOnReload: true

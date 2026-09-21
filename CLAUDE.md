@@ -33,7 +33,7 @@ To check visuals: `grim -g "X,Y WxH" file.png` and read the image.
 - `i18n/` — `I18n` singleton with the `ru` / `en` dictionaries. Language is persisted via `Quickshell.statePath("lang")`.
 - `config/` — `Config` singleton: persisted bar settings (JSON in the shell state dir). Edited only through the menu.
 - `services/` — `Notifs`: the notification daemon (`NotificationServer`) + on-screen queue (`shown` / `waiting`) + workspace notification marks. State only; drawing is in `components/notifications/`.
-- `components/` also holds the bar widgets: `Workspaces`, `AppDock` (pinned app icons), `Media` (MPRIS), `Clock` (+`CalendarPopup`), `SysMon` (data: `services/SysStats` + `scripts/sysstat.sh`), `Network` (+`WifiRow`, `NetworkProfiles`, `NetworkProfileEditor`; nmcli logic in `services/NetInfo`), `Bluetooth` (+`BtDeviceRow`), `Battery`, `Language`, `Mixer`. Reusable UI blocks: `BarPopup`, `Chip`, `Field`.
+- `components/` also holds the bar widgets: `Workspaces`, `AppDock` (pinned app icons), `Media` (MPRIS), `Clock` (+`CalendarPopup`), `SysMon` (data: `services/SysStats` + `scripts/sysstat.sh`), `Network` (+`WifiRow`, `NetworkProfiles`, `NetworkProfileEditor`; nmcli logic in `services/NetInfo`), `Bluetooth` (+`BtDeviceRow`), `Battery`, `Language`, `Mixer` (icon + popup; `VolumeRow`, `DevicePicker`). Reusable UI blocks: `BarPopup`, `Chip`, `Field`, `Slider`.
 - `components/notifications/` — popup window, `NotificationCard`, and `frames/<Name>Frame.qml` (window shapes).
 - `components/` — `Panel` (base "window" of the bar), `Label`, `Bar`, widgets (`Workspaces`, `Clock`, `Language`, `Mixer`), `Menu` (window + navigation), `MenuPages` (menu content).
 
@@ -67,7 +67,7 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 - The main menu (`Menu.qml`) uses the same mechanism (own catcher, `OnDemand` + grab); any new overlay window that must close on outside click must too.
 - Click-outside-to-close is done by a full-screen transparent "catcher" window on the `Top` layer under the popup (`Overlay`), plus `HyprlandFocusGrab`. The popup uses `keyboardFocus: OnDemand`, **not** `Exclusive` — with Exclusive, Hyprland doesn't deliver pointer clicks to other surfaces and outside-click closing silently stops working. The catcher starts below the reserved top area so all panels (ours and the other bar) stay clickable; the popup's top offset also comes from the monitor's `reserved` area, since Overlay ignores exclusive zones.
 - Don't use `Shortcut` in windows (segfaults on hot reload); Esc is handled via `Keys.onEscapePressed`.
-- Popups are addressable over IPC for testing: `qs -c butler ipc call popup.<clock|network|bluetooth|battery> toggle`.
+- Popups are addressable over IPC for testing: `qs -c butler ipc call popup.<clock|network|bluetooth|battery|mixer> toggle`.
 - Don't use `Quickshell.Networking` (0.3.0): it segfaulted the whole shell right after NetworkManager's "Access point removed" while our Wi-Fi list held its objects. Wi-Fi/IP data comes from `nmcli` via `services/NetInfo` as plain JS objects. In general, prefer plain snapshots over QObject lists from Quickshell services in `ScriptModel`/`Repeater` delegates. Also note: V4 JS has no regex lookbehind.
 - Network profiles are applied with `nmcli` (`services/NetInfo`); never test-apply against the live connection — use a throwaway `nmcli connection add ... autoconnect no` profile.
 

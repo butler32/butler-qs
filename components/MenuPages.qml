@@ -35,6 +35,7 @@ QtObject {
         case "lang": return langs()
         case "config": return config()
         case "cfg.ws": return cfgWorkspaces()
+        case "cfg.notif": return cfgNotifications()
         case "cfg.ws.icons": return cfgWorkspaceIcons()
         case "cfg.ws.icon": return cfgWorkspaceIcon(arg)
         case "cfg.ws.app": return apps(e => Config.setWorkspaceIcon(arg, "icon:" + e.icon), 2)
@@ -108,12 +109,13 @@ QtObject {
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
 
     // Числовая настройка: ←/→ меняют, Enter увеличивает по кругу
-    function numberItem(name, hint, icon, get, set, lo, hi) {
-        const step = d => {
-            const n = get() + d
+    // step — шаг изменения, fmt — форматирование значения для показа
+    function numberItem(name, hint, icon, get, set, lo, hi, step, fmt) {
+        const adjust = d => {
+            const n = get() + d * (step ?? 1)
             set(n > hi ? lo : n < lo ? hi : n)
         }
-        return { name: name, comment: hint, icon: icon, value: String(get()), adjust: step, keepOpen: true, run: () => step(1) }
+        return { name: name, comment: hint, icon: icon, value: fmt ? fmt(get()) : String(get()), adjust: adjust, keepOpen: true, run: () => adjust(1) }
     }
 
     function toggleItem(name, hint, icon, get, set) {
@@ -177,6 +179,22 @@ QtObject {
             pick("style.dot", "dot", ""),
             pick("style.number", "number", ""),
             { name: I18n.tr("style.app"), icon: "", active: cur.startsWith("icon:"), page: "cfg.ws.app:" + id }
+        ]
+    }
+
+    function cfgNotifications() {
+        const c = Config.notifications
+        return [
+            numberItem(I18n.tr("cfg.notif.max"), I18n.tr("cfg.notif.max.hint"), "\uf0ca",
+                       () => c.maxVisible, v => c.maxVisible = v, 1, 10),
+            numberItem(I18n.tr("cfg.notif.timeout"), I18n.tr("cfg.notif.timeout.hint"), "\uf017",
+                       () => c.timeoutSec, v => c.timeoutSec = v, 0, 60, 1,
+                       v => v === 0 ? I18n.tr("value.never") : v + " " + I18n.tr("unit.s")),
+            numberItem(I18n.tr("cfg.notif.fade"), I18n.tr("cfg.notif.fade.hint"), "\uf042",
+                       () => c.fadeMs, v => c.fadeMs = v, 0, 3000, 100,
+                       v => v + " " + I18n.tr("unit.ms")),
+            { name: I18n.tr("cfg.notif.test"), comment: I18n.tr("cfg.notif.test.hint"), icon: "\uf1d8", keepOpen: true,
+              run: () => Quickshell.execDetached(["notify-send", "-a", "Quickshell", I18n.tr("cfg.notif.test.title"), I18n.tr("cfg.notif.test.body")]) }
         ]
     }
 }

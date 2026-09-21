@@ -12,10 +12,13 @@ PanelWindow {
     screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0]
     visible: Notifs.shown.length > 0
     color: "transparent"
-    anchors { top: true; right: true }
+    // Окно всегда на всю высоту: смена размера окна заставляла композитор заново
+    // проигрывать анимацию появления у всех карточек. Мышь пропускает mask.
+    anchors { top: true; bottom: true; right: true }
     margins {
         top: Theme.barHeight + Theme.barMargin * 2 + Theme.gap
         right: Theme.barMargin
+        bottom: Theme.barMargin
     }
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
@@ -23,7 +26,6 @@ PanelWindow {
     WlrLayershell.namespace: "qs-notifications"
 
     implicitWidth: Theme.notifWidth
-    implicitHeight: Math.max(1, stack.implicitHeight)
     mask: Region { item: stack }
 
     Column {

@@ -1,6 +1,8 @@
+//@ pragma ShellId butler
 import Quickshell
 import Quickshell.Io
 import "components"
+import "components/notifications"
 import "theme"
 import "i18n"
 
@@ -16,6 +18,8 @@ ShellRoot {
             onMenuRequested: { shell.menuPage = "root"; menuLoader.active = true }
         }
     }
+
+    NotificationPopups {}
 
     LazyLoader {
         id: menuLoader

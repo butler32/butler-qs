@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Services.Mpris
 import "../theme"
 import "../i18n"
 import "../config"
@@ -23,6 +24,7 @@ import "../config"
 QtObject {
     function title(id) {
         const [base, arg] = id.split(":")
+        if (base === "cfg.sys.metric") return I18n.tr("metric." + arg)
         return I18n.tr("menu.title." + base) + (arg ? " " + arg : "")
     }
 
@@ -36,6 +38,12 @@ QtObject {
         case "config": return config()
         case "cfg.ws": return cfgWorkspaces()
         case "cfg.notif": return cfgNotifications()
+        case "cfg.media": return cfgMedia()
+        case "cfg.media.app": return cfgMediaApp()
+        case "cfg.clock": return cfgClock()
+        case "cfg.apps": return apps(e => Config.togglePinnedApp(e.id), 0, e => Config.apps.pinned.includes(e.id))
+        case "cfg.sys": return cfgSys()
+        case "cfg.sys.metric": return cfgSysMetric(arg)
         case "cfg.ws.icons": return cfgWorkspaceIcons()
         case "cfg.ws.icon": return cfgWorkspaceIcon(arg)
         case "cfg.ws.app": return apps(e => Config.setWorkspaceIcon(arg, "icon:" + e.icon), 2)
@@ -54,7 +62,8 @@ QtObject {
     }
 
     // onPick(entry) — если задан, выбор приложения не запускает его, а отдаёт вызывающему
-    function apps(onPick, backAfter) {
+    // isActive(entry) — если задан, у приложения показывается галочка (выбор из списка)
+    function apps(onPick, backAfter, isActive) {
         return DesktopEntries.applications.values
             .filter(e => !e.noDisplay)
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -63,6 +72,7 @@ QtObject {
                 comment: e.comment ?? "",
                 iconSource: Quickshell.iconPath(e.icon, "application-x-executable"),
                 keywords: [e.genericName ?? "", ...(e.keywords ?? [])],
+                active: isActive ? isActive(e) : false,
                 run: () => onPick ? onPick(e) : e.execute(),
                 keepOpen: !!onPick,
                 backAfter: backAfter ?? 0
@@ -103,7 +113,11 @@ QtObject {
     function config() {
         return [
             { name: I18n.tr("cfg.ws"), comment: I18n.tr("cfg.ws.hint"), icon: "", page: "cfg.ws" },
-            { name: I18n.tr("cfg.notif"), comment: I18n.tr("cfg.notif.hint"), icon: "\uf0f3", page: "cfg.notif" }
+            { name: I18n.tr("cfg.notif"), comment: I18n.tr("cfg.notif.hint"), icon: "\uf0f3", page: "cfg.notif" },
+            { name: I18n.tr("cfg.media"), comment: I18n.tr("cfg.media.hint"), icon: "\uf001", page: "cfg.media" },
+            { name: I18n.tr("cfg.clock"), comment: I18n.tr("cfg.clock.hint"), icon: "\uf017", page: "cfg.clock" },
+            { name: I18n.tr("cfg.apps"), comment: I18n.tr("cfg.apps.hint"), icon: "\uf00a", page: "cfg.apps" },
+            { name: I18n.tr("cfg.sys"), comment: I18n.tr("cfg.sys.hint"), icon: "\uf080", page: "cfg.sys" }
         ]
     }
 
@@ -198,6 +212,65 @@ QtObject {
                        () => c.pauseAllOnHover, v => c.pauseAllOnHover = v),
             { name: I18n.tr("cfg.notif.test"), comment: I18n.tr("cfg.notif.test.hint"), icon: "\uf1d8", keepOpen: true,
               run: () => Quickshell.execDetached(["notify-send", "-a", "Quickshell", I18n.tr("cfg.notif.test.title"), I18n.tr("cfg.notif.test.body")]) }
+        ]
+    }
+
+    function cfgMedia() {
+        const c = Config.media
+        return [
+            toggleItem(I18n.tr("cfg.media.prevnext"), I18n.tr("cfg.media.prevnext.hint"), "\uf051",
+                       () => c.showPrevNext, v => c.showPrevNext = v),
+            { name: I18n.tr("cfg.media.app"), comment: I18n.tr("cfg.media.app.hint"), icon: "\uf009",
+              value: c.pinnedApp || I18n.tr("media.any"), page: "cfg.media.app" }
+        ]
+    }
+
+    // "Любое приложение" + сейчас запущенные плееры (+ текущая привязка, даже если плеер закрыт)
+    function cfgMediaApp() {
+        const c = Config.media
+        const names = Mpris.players.values.map(p => p.identity)
+        if (c.pinnedApp && !names.some(n => n.toLowerCase() === c.pinnedApp)) names.push(c.pinnedApp)
+        const pick = (label, value, glyph) => ({
+            name: label, icon: glyph, active: c.pinnedApp === value,
+            keepOpen: true, backAfter: 1, run: () => c.pinnedApp = value
+        })
+        return [pick(I18n.tr("media.any"), "", "\uf0ac"),
+                ...names.map(n => pick(n, n.toLowerCase(), "\uf001"))]
+    }
+
+    function cfgClock() {
+        const c = Config.clock
+        return [
+            toggleItem(I18n.tr("cfg.clock.date"), "", "\uf073", () => c.showDate, v => c.showDate = v),
+            toggleItem(I18n.tr("cfg.clock.monday"), I18n.tr("cfg.clock.monday.hint"), "\uf133",
+                       () => c.weekStartsMonday, v => c.weekStartsMonday = v),
+            toggleItem(I18n.tr("cfg.clock.seconds"), "", "\uf017", () => c.showSeconds, v => c.showSeconds = v)
+        ]
+    }
+
+    readonly property var monitorModes: ["off", "always", "yellow", "red"]
+
+    function cfgSys() {
+        return Config.metricIds.map(id => ({
+            name: I18n.tr("metric." + id),
+            icon: id.endsWith("Temp") ? "\uf2c9" : id === "ram" || id === "vram" ? "\uf2db" : "\uf080",
+            value: I18n.tr("mode." + Config.sysmon[id].mode),
+            page: "cfg.sys.metric:" + id
+        }))
+    }
+
+    function cfgSysMetric(id) {
+        const c = Config.sysmon[id]
+        const modes = monitorModes
+        const cycle = d => { c.mode = modes[(modes.indexOf(c.mode) + d + modes.length) % modes.length] }
+        const unit = id.endsWith("Temp") ? "°C" : "%"
+        return [
+            { name: I18n.tr("cfg.sys.mode"), comment: I18n.tr("cfg.sys.mode.hint"), icon: "\uf06e",
+              value: I18n.tr("mode." + c.mode), adjust: cycle, keepOpen: true, run: () => cycle(1) },
+            numberItem(I18n.tr("cfg.sys.yellow"), I18n.tr("cfg.sys.thr.hint"), "\uf071",
+                       () => c.yellow, v => c.yellow = v, 0, 120, 5, v => v + unit),
+            numberItem(I18n.tr("cfg.sys.red"), I18n.tr("cfg.sys.thr.hint"), "\uf06a",
+                       () => c.red, v => c.red = v, 0, 120, 5, v => v + unit)
         ]
     }
 }

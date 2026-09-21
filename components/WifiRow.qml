@@ -1,17 +1,15 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Networking
 import "../theme"
 import "../i18n"
+import "../services"
 
-// Wi-Fi сеть: клик — подключить/отключить; для защищённой неизвестной сети
-// раскрывается поле пароля.
+// Wi-Fi сеть (plain-данные из NetInfo.wifi): клик — подключить/отключить;
+// для защищённой неизвестной сети раскрывается поле пароля.
 Rectangle {
     id: row
-    required property var modelData   // WifiNetwork
+    required property var modelData   // { name, signal, secure, connected, known }
     readonly property var net: modelData
-    readonly property bool open: net.security === WifiSecurityType.Open
-    readonly property real signal: Math.round(net.signalStrength <= 1 ? net.signalStrength * 100 : net.signalStrength)
     property bool asking: false
 
     width: ListView.view ? ListView.view.width : 300
@@ -32,10 +30,10 @@ Rectangle {
         RowLayout {
             Layout.fillWidth: true
             spacing: Theme.gap
-            Label { text: ""; color: row.net.connected ? Theme.accent : Theme.textDim; opacity: 0.4 + row.signal / 170 }
+            Label { text: ""; color: row.net.connected ? Theme.accent : Theme.textDim; opacity: 0.4 + row.net.signal / 170 }
             Label { Layout.fillWidth: true; text: row.net.name; elide: Text.ElideRight; font.bold: row.net.connected }
-            Label { visible: !row.open; text: ""; color: Theme.textDim; font.pixelSize: Theme.fontSize - 2 }
-            Label { text: row.signal + "%"; color: Theme.textDim; font.pixelSize: Theme.fontSize - 2 }
+            Label { visible: row.net.secure; text: ""; color: Theme.textDim; font.pixelSize: Theme.fontSize - 2 }
+            Label { text: row.net.signal + "%"; color: Theme.textDim; font.pixelSize: Theme.fontSize - 2 }
             Label { visible: row.net.connected; text: ""; color: Theme.accent }
         }
         RowLayout {
@@ -49,7 +47,7 @@ Rectangle {
                 onAccepted: connectBtn.clicked()
             }
             Chip { id: connectBtn; text: I18n.tr("net.connect"); accent: true
-                onClicked: { row.net.connectWithPsk(pass.text); pass.text = ""; row.asking = false } }
+                onClicked: { NetInfo.connectWifi(row.net, pass.text); pass.text = ""; row.asking = false } }
         }
     }
 
@@ -60,8 +58,8 @@ Rectangle {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: {
-            if (row.net.connected) row.net.disconnect()
-            else if (row.net.known || row.open) row.net.connect()
+            if (row.net.connected) NetInfo.disconnectWifi(row.net)
+            else if (row.net.known || !row.net.secure) NetInfo.connectWifi(row.net, "")
             else { row.asking = !row.asking; if (row.asking) pass.input.forceActiveFocus() }
         }
     }

@@ -64,6 +64,7 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 - Widget popups are `BarPopup { anchorItem: root; screen: root.QsWindow.window?.screen ?? null; ipcName: "..." }` with content placed inside; open with `popup.toggle()` (not `open = !open`: it guards the click that closes the focus grab). Popups live on the `Top` layer with `ExclusionMode.Normal` so they sit under *all* panels (there is another bar above ours). Don't switch them to Overlay/Ignore — they would overlap the bar.
 - Don't use `Shortcut` in windows (segfaults on hot reload); Esc is handled via `Keys.onEscapePressed`.
 - Popups are addressable over IPC for testing: `qs -c butler ipc call popup.<clock|network|bluetooth|battery> toggle`.
+- Don't use `Quickshell.Networking` (0.3.0): it segfaulted the whole shell right after NetworkManager's "Access point removed" while our Wi-Fi list held its objects. Wi-Fi/IP data comes from `nmcli` via `services/NetInfo` as plain JS objects. In general, prefer plain snapshots over QObject lists from Quickshell services in `ScriptModel`/`Repeater` delegates. Also note: V4 JS has no regex lookbehind.
 - Network profiles are applied with `nmcli` (`services/NetInfo`); never test-apply against the live connection — use a throwaway `nmcli connection add ... autoconnect no` profile.
 
 ### Menu

@@ -1,25 +1,22 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Networking
 import "../theme"
 import "../i18n"
 import "../services"
 
 // Значок сети (Wi-Fi с уровнем сигнала или кабель). Клик — Wi-Fi сети и IP-профили.
+// Данные — только из services/NetInfo (nmcli), без Quickshell.Networking (см. там).
 Panel {
     id: root
-    readonly property var devs: Networking.devices.values
-    readonly property var wifi: devs.find(d => d.type === DeviceType.Wifi) ?? null
-    readonly property var wired: devs.find(d => d.type === DeviceType.Wired && d.connected) ?? null
-    readonly property var wifiNet: wifi?.networks.values.find(n => n.connected) ?? null
-    readonly property real wifiPct: wifiNet ? Math.round(wifiNet.signalStrength <= 1 ? wifiNet.signalStrength * 100 : wifiNet.signalStrength) : 0
+    readonly property var wifiNet: NetInfo.wifi.find(n => n.connected) ?? null
+    readonly property bool wired: NetInfo.active.some(d => d.type === "ethernet")
 
     Label {
-        text: root.wifiNet ? "" : root.wired ? "" : ""
+        text: root.wifiNet || !root.wired ? "" : ""
         color: root.wifiNet || root.wired ? Theme.accent : Theme.textDim
     }
-    Label { visible: root.wifiNet !== null; text: root.wifiPct + "%"; font.pixelSize: Theme.fontSize - 1 }
+    Label { visible: root.wifiNet !== null; text: (root.wifiNet?.signal ?? 0) + "%"; font.pixelSize: Theme.fontSize - 1 }
 
     overlay: MouseArea {
         anchors.fill: parent
@@ -36,8 +33,8 @@ Panel {
         property int editIndex: -2      // -2: обычный вид, -1: новый профиль, >=0: правка
 
         onOpenChanged: {
-            if (root.wifi) root.wifi.scannerEnabled = open
-            if (open) { editIndex = -2; NetInfo.refresh() }
+            NetInfo.fast = open
+            if (open) { editIndex = -2; NetInfo.rescan(); NetInfo.refresh() }
         }
 
         // ---------- обычный вид ----------
@@ -50,11 +47,12 @@ Panel {
                 Layout.fillWidth: true
                 Label { Layout.fillWidth: true; text: I18n.tr("net.title"); font.bold: true }
                 Chip {
-                    visible: root.wifi !== null
+                    visible: NetInfo.hasWifi
                     icon: ""
-                    text: Networking.wifiEnabled ? I18n.tr("common.on") : I18n.tr("common.off")
-                    accent: Networking.wifiEnabled
-                    onClicked: Networking.wifiEnabled = !Networking.wifiEnabled
+                    text: NetInfo.wifiEnabled ? I18n.tr("common.on") : I18n.tr("common.off")
+                    accent: NetInfo.wifiEnabled
+                    enabled: !NetInfo.busy
+                    onClicked: NetInfo.setWifiEnabled(!NetInfo.wifiEnabled)
                 }
             }
 
@@ -71,24 +69,20 @@ Panel {
             }
 
             Label {
-                visible: root.wifi !== null && Networking.wifiEnabled
+                visible: NetInfo.hasWifi && NetInfo.wifiEnabled
                 text: I18n.tr("net.wifi")
                 color: Theme.accent
                 font.pixelSize: Theme.fontSize - 2
             }
             ListView {
-                id: wifiList
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.min(contentHeight, 230)
-                visible: root.wifi !== null && Networking.wifiEnabled
+                visible: NetInfo.hasWifi && NetInfo.wifiEnabled
                 clip: true
                 spacing: 2
                 boundsBehavior: Flickable.StopAtBounds
-                // ScriptModel сохраняет делегаты при пересортировке (важно для поля пароля)
-                model: ScriptModel {
-                    values: (root.wifi?.networks.values ?? []).slice().sort((a, b) =>
-                        (b.connected - a.connected) || (b.signalStrength - a.signalStrength))
-                }
+                // objectProp: делегаты (и введённый пароль) переживают обновление списка
+                model: ScriptModel { values: NetInfo.wifi; objectProp: "name" }
                 delegate: WifiRow {}
             }
 

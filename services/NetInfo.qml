@@ -5,16 +5,39 @@ import Quickshell.Io
 import "../i18n"
 
 // Работа с NetworkManager через nmcli: активные подключения с IP и применение
-// IP-профилей (DHCP / статика). Список сетей и Wi-Fi — через Quickshell.Networking.
+// IP-профилей (DHCP / статика), список Wi-Fi сетей и подключение к ним.
+// Quickshell.Networking намеренно НЕ используется: удаление точек доступа в нём роняло
+// весь шелл (segfault сразу после «Access point removed»). Здесь только plain-данные.
 Singleton {
     id: root
 
     property var active: []          // [{ device, type, name, ip, gateway }]
+    property var wifi: []            // [{ name, signal (0..100), secure, connected, known }], сильнейшие сверху
+    property bool wifiEnabled: true
+    property bool hasWifi: false     // есть Wi-Fi адаптер
+    property bool fast: false        // окно сети открыто — опрашиваем чаще
     property bool busy: false
     property string status: ""
     property bool statusError: false
 
-    function refresh() { if (!info.running) info.running = true }
+    function refresh() {
+        if (!info.running) info.running = true
+        if (!wifiList.running) wifiList.running = true
+        if (!known.running) known.running = true
+        if (!radio.running) radio.running = true
+    }
+
+    // ---------- Wi-Fi ----------
+
+    function rescan() { Quickshell.execDetached(["nmcli", "device", "wifi", "rescan"]) }
+    function setWifiEnabled(on) { run([["nmcli", "radio", "wifi", on ? "on" : "off"]]) }
+    // password — только для новой защищённой сети; известные подключаются по сохранённому профилю
+    function connectWifi(n, password) {
+        if (password) run([["nmcli", "device", "wifi", "connect", n.name, "password", password]])
+        else if (n.known) run([["nmcli", "connection", "up", "id", n.name]])
+        else run([["nmcli", "device", "wifi", "connect", n.name]])
+    }
+    function disconnectWifi(n) { run([["nmcli", "connection", "down", "id", n.name]]) }
 
     // ---------- валидация ----------
 
@@ -53,6 +76,12 @@ Singleton {
         }
         // переподключаем только активную сеть; для неактивной настройки применятся при подключении
         if (active.some(a => a.name === net)) cmds.push(["nmcli", "connection", "up", "id", net])
+        run(cmds)
+    }
+
+    // последовательно выполняет команды; результат — в status/statusError
+    function run(cmds) {
+        if (busy) return
         busy = true
         status = ""
         statusError = false
@@ -87,7 +116,54 @@ Singleton {
 
     // ---------- чтение состояния ----------
 
-    Timer { interval: 8000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
+    Timer { interval: root.fast ? 3000 : 10000; running: true; repeat: true; triggeredOnStart: true; onTriggered: root.refresh() }
+
+    // разбор строки nmcli -t: поля через неэкранированное ":"
+    function fields(line) {
+        const out = [""]
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i]
+            if (ch === "\\" && i + 1 < line.length) out[out.length - 1] += line[++i]
+            else if (ch === ":") out.push("")
+            else out[out.length - 1] += ch
+        }
+        return out
+    }
+
+    Process {
+        id: radio
+        command: ["nmcli", "radio", "wifi"]
+        stdout: StdioCollector { onStreamFinished: root.wifiEnabled = text.trim() === "enabled" }
+    }
+
+    property var knownNames: []
+    Process {
+        id: known
+        command: ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"]
+        stdout: StdioCollector {
+            onStreamFinished: root.knownNames = text.split("\n").map(root.fields)
+                .filter(f => f[1] === "802-11-wireless").map(f => f[0])
+        }
+    }
+
+    Process {
+        id: wifiList
+        command: ["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "no"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const best = {}
+                for (const line of text.split("\n")) {
+                    const f = root.fields(line)
+                    if (f.length < 4 || f[1] === "") continue
+                    const n = { name: f[1], signal: Number(f[2]) || 0, secure: f[3] !== "",
+                                connected: f[0] === "*", known: root.knownNames.includes(f[1]) }
+                    const prev = best[n.name]
+                    if (!prev || n.connected || (!prev.connected && n.signal > prev.signal)) best[n.name] = n
+                }
+                root.wifi = Object.values(best).sort((a, b) => (b.connected - a.connected) || (b.signal - a.signal))
+            }
+        }
+    }
 
     Process {
         id: info
@@ -108,6 +184,7 @@ Singleton {
                     else if (key === "IP4.ADDRESS[1]") cur.ip = val
                     else if (key === "IP4.GATEWAY") cur.gateway = val
                 }
+                root.hasWifi = out.some(d => d.type === "wifi")
                 // без loopback, VPN-туннелей и неподключённых устройств
                 root.active = out.filter(d => d.name !== "" && d.type !== "loopback" && d.type !== "tun")
             }

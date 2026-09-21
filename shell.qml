@@ -5,6 +5,7 @@ import "components"
 import "components/notifications"
 import "theme"
 import "i18n"
+import "services"
 
 ShellRoot {
     id: shell
@@ -20,6 +21,7 @@ ShellRoot {
     }
 
     NotificationPopups {}
+    OsdPopup {}
 
     LazyLoader {
         id: menuLoader
@@ -41,6 +43,12 @@ ShellRoot {
         function open(): void { shell.menuPage = "root"; menuLoader.active = true }
         function page(id: string): void { menuLoader.active = false; shell.menuPage = id; menuLoader.active = true }
         function close(): void { menuLoader.active = false }
+    }
+
+    // qs -c butler ipc call osd event <brightness|capslock|volume|mic> <значение>
+    IpcHandler {
+        target: "osd"
+        function event(kind: string, value: string): void { Osd.show(kind, value) }
     }
 
     // qs -c butler ipc call i18n set ru|en | toggle | get

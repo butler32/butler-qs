@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import "../services"
 import Quickshell.Services.Mpris
 import "../theme"
 import "../i18n"
@@ -43,6 +44,7 @@ QtObject {
         case "cfg.clock": return cfgClock()
         case "cfg.apps": return apps(e => Config.togglePinnedApp(e.id), 0, e => Config.apps.pinned.includes(e.id))
         case "cfg.sys": return cfgSys()
+        case "cfg.osd": return cfgOsd()
         case "cfg.sys.metric": return cfgSysMetric(arg)
         case "cfg.ws.icons": return cfgWorkspaceIcons()
         case "cfg.ws.icon": return cfgWorkspaceIcon(arg)
@@ -117,7 +119,8 @@ QtObject {
             { name: I18n.tr("cfg.media"), comment: I18n.tr("cfg.media.hint"), icon: "\uf001", page: "cfg.media" },
             { name: I18n.tr("cfg.clock"), comment: I18n.tr("cfg.clock.hint"), icon: "\uf017", page: "cfg.clock" },
             { name: I18n.tr("cfg.apps"), comment: I18n.tr("cfg.apps.hint"), icon: "\uf00a", page: "cfg.apps" },
-            { name: I18n.tr("cfg.sys"), comment: I18n.tr("cfg.sys.hint"), icon: "\uf080", page: "cfg.sys" }
+            { name: I18n.tr("cfg.sys"), comment: I18n.tr("cfg.sys.hint"), icon: "\uf080", page: "cfg.sys" },
+            { name: I18n.tr("cfg.osd"), comment: I18n.tr("cfg.osd.hint"), icon: "\uf028", page: "cfg.osd" }
         ]
     }
 
@@ -271,6 +274,21 @@ QtObject {
                        () => c.yellow, v => c.yellow = v, 0, 120, 5, v => v + unit),
             numberItem(I18n.tr("cfg.sys.red"), I18n.tr("cfg.sys.thr.hint"), "\uf06a",
                        () => c.red, v => c.red = v, 0, 120, 5, v => v + unit)
+        ]
+    }
+
+    function cfgOsd() {
+        const c = Config.osd
+        const positions = ["bottom", "top"]
+        const cyclePos = d => { c.position = positions[(positions.indexOf(c.position) + d + positions.length) % positions.length] }
+        return [
+            toggleItem(I18n.tr("cfg.osd.enabled"), I18n.tr("cfg.osd.enabled.hint"), "\uf028", () => c.enabled, v => c.enabled = v),
+            numberItem(I18n.tr("cfg.osd.timeout"), I18n.tr("cfg.osd.timeout.hint"), "\uf017",
+                       () => c.timeoutMs, v => c.timeoutMs = v, 300, 5000, 100, v => v + " " + I18n.tr("unit.ms")),
+            { name: I18n.tr("cfg.osd.position"), comment: I18n.tr("cfg.osd.position.hint"), icon: "\uf0ab",
+              value: I18n.tr("pos." + c.position), adjust: cyclePos, keepOpen: true, run: () => cyclePos(1) },
+            { name: I18n.tr("cfg.osd.test"), comment: I18n.tr("cfg.osd.test.hint"), icon: "\uf1d8", keepOpen: true,
+              run: () => Osd.show("volume", 50) }
         ]
     }
 }

@@ -55,6 +55,8 @@ PanelWindow {
             Popups.activeId = uid
             Hyprland.refreshMonitors()
             reposition()
+        } else if (Popups.activeId === uid) {
+            Popups.activeId = ""
         }
     }
     onWidthChanged: if (open) reposition()

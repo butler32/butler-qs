@@ -55,6 +55,8 @@ Singleton {
     property real trackHeight: current.trackHeight
     property real workspaceDot: current.workspaceDot
     property real menuWidth: current.menuWidth
+    property real notifWidth: current.notifWidth
+    property string notifFrame: current.notifFrame
     property real menuRows: current.menuRows
     property real menuItem: current.menuItem
     property real fontSize: current.fontSize
@@ -69,6 +71,7 @@ Singleton {
     Behavior on padding { NumberAnimation { duration: root._ms } }
     Behavior on gap { NumberAnimation { duration: root._ms } }
     Behavior on trackHeight { NumberAnimation { duration: root._ms } }
+    Behavior on notifWidth { NumberAnimation { duration: root._ms } }
     Behavior on menuWidth { NumberAnimation { duration: root._ms } }
     Behavior on menuItem { NumberAnimation { duration: root._ms } }
     Behavior on workspaceDot { NumberAnimation { duration: root._ms } }

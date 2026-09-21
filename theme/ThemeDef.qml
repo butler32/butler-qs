@@ -27,6 +27,8 @@ QtObject {
     property real gap: 8            // расстояние между панелями/элементами
     property real trackHeight: 6
     property real workspaceDot: 10  // размер неактивного воркспейса
+    property real notifWidth: 360   // ширина уведомления
+    property string notifFrame: "panel"  // форма окна уведомления: components/notifications/frames/<Имя>Frame.qml
     property real menuWidth: 520
     property real menuRows: 8   // видимых строк в лаунчере
     property real menuItem: 44  // высота строки лаунчера

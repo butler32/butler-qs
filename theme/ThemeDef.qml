@@ -13,6 +13,7 @@ QtObject {
     property color accent: "#89b4fa"
     property color accentText: "#11111b"
     property color danger: "#f38ba8"
+    property color notify: "#fab387"      // воркспейс с уведомлением
 
     // --- формы ---
     property real radiusPanel: 14   // скругление «окон» бара

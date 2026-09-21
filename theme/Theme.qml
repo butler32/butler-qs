@@ -31,6 +31,7 @@ Singleton {
     property color accent: current.accent
     property color accentText: current.accentText
     property color danger: current.danger
+    property color notify: current.notify
     Behavior on surface { ColorAnimation { duration: root._ms } }
     Behavior on surfaceAlt { ColorAnimation { duration: root._ms } }
     Behavior on border { ColorAnimation { duration: root._ms } }
@@ -39,6 +40,7 @@ Singleton {
     Behavior on accent { ColorAnimation { duration: root._ms } }
     Behavior on accentText { ColorAnimation { duration: root._ms } }
     Behavior on danger { ColorAnimation { duration: root._ms } }
+    Behavior on notify { ColorAnimation { duration: root._ms } }
 
     // ---- формы ----
     property real radiusPanel: current.radiusPanel
@@ -78,7 +80,7 @@ Singleton {
         id: sharp
         surface: "#0d0d0d"; surfaceAlt: "#1f1f1f"; border: "#e6e6e6"
         text: "#f2f2f2"; textDim: "#808080"
-        accent: "#ffd60a"; accentText: "#000000"; danger: "#ff453a"
+        accent: "#ffd60a"; accentText: "#000000"; danger: "#ff453a"; notify: "#ff6b00"
         radiusPanel: 0; radiusItem: 0; radiusTrack: 0; radiusPopup: 0
         borderWidth: 2; barHeight: 30; barMargin: 0; padding: 12; gap: 0
         trackHeight: 4; workspaceDot: 12
@@ -89,7 +91,7 @@ Singleton {
         id: paper
         surface: "#f5efe6"; surfaceAlt: "#e3d9c8"; border: "#b9a98c"
         text: "#3b3226"; textDim: "#9a8b73"
-        accent: "#c0562f"; accentText: "#fffaf2"; danger: "#a4262c"
+        accent: "#c0562f"; accentText: "#fffaf2"; danger: "#a4262c"; notify: "#2e7d6b"
         radiusPanel: 20; radiusItem: 20; radiusTrack: 8; radiusPopup: 24
         borderWidth: 0; barHeight: 38; barMargin: 8; padding: 14; gap: 10
         trackHeight: 10; workspaceDot: 8

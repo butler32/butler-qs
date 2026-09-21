@@ -16,6 +16,7 @@ Singleton {
     readonly property var apps: adapter.apps
     readonly property var sysmon: adapter.sysmon
     readonly property var network: adapter.network
+    readonly property var osd: adapter.osd
 
     FileView {
         id: file
@@ -69,6 +70,11 @@ Singleton {
                 property MetricConfig gpuTemp: MetricConfig { mode: "yellow"; yellow: 70; red: 85 }
                 property MetricConfig ram: MetricConfig { mode: "always"; yellow: 70; red: 90 }
                 property MetricConfig vram: MetricConfig { mode: "yellow"; yellow: 70; red: 90 }
+            }
+            property JsonObject osd: JsonObject {
+                property bool enabled: true
+                property int timeoutMs: 1200
+                property string position: "bottom"   // bottom | top
             }
             property JsonObject network: JsonObject {
                 // { name, network (имя NM-подключения), mode: "dhcp"|"static", ip, mask, gateway, dns }

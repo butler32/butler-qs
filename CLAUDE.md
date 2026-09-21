@@ -20,6 +20,8 @@ qs -c butler ipc call i18n set en          # ru | en | toggle | get
 
 Settings and language live in `~/.local/state/quickshell/by-shell/butler/` — the shell ID is pinned by `//@ pragma ShellId butler` in `shell.qml`, so state is shared no matter how it is launched (`-c butler`, `-p <path>`). Never remove that pragma: without it every launch path gets its own state dir and settings appear to reset.
 
+Process names are `qs` (daemon launcher) and `quickshell`; to kill everything use `pkill -x qs; pkill -x quickshell` (`qs kill` only stops one instance, and a hot-reload crash auto-restarts another copy — check `pgrep -a qs` before restarting, or you get stacked bars).
+
 To check visuals: `grim -g "X,Y WxH" file.png` and read the image.
 
 ## Layout
@@ -29,6 +31,7 @@ To check visuals: `grim -g "X,Y WxH" file.png` and read the image.
 - `i18n/` — `I18n` singleton with the `ru` / `en` dictionaries. Language is persisted via `Quickshell.statePath("lang")`.
 - `config/` — `Config` singleton: persisted bar settings (JSON in the shell state dir). Edited only through the menu.
 - `services/` — `Notifs`: the notification daemon (`NotificationServer`) + on-screen queue (`shown` / `waiting`) + workspace notification marks. State only; drawing is in `components/notifications/`.
+- `components/` also holds the bar widgets: `Workspaces`, `AppDock` (pinned app icons), `Media` (MPRIS), `Clock` (+`CalendarPopup`), `SysMon` (data: `services/SysStats` + `scripts/sysstat.sh`), `Network` (+`WifiRow`, `NetworkProfiles`, `NetworkProfileEditor`; nmcli logic in `services/NetInfo`), `Bluetooth` (+`BtDeviceRow`), `Battery`, `Language`, `Mixer`. Reusable UI blocks: `BarPopup`, `Chip`, `Field`.
 - `components/notifications/` — popup window, `NotificationCard`, and `frames/<Name>Frame.qml` (window shapes).
 - `components/` — `Panel` (base "window" of the bar), `Label`, `Bar`, widgets (`Workspaces`, `Clock`, `Language`, `Mixer`), `Menu` (window + navigation), `MenuPages` (menu content).
 
@@ -56,6 +59,12 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 ### Notification shapes (extensibility)
 - The popup's shape is a **frame**: `components/notifications/frames/<Name>Frame.qml`, selected by the theme token `notifFrame` (`"panel"` → `PanelFrame.qml`). Contract is documented in `PanelFrame.qml` (fills the card, exposes `inset*` for content, `critical`). To add a new silhouette (e.g. a cat face), add a frame file and set `notifFrame` in a theme — don't special-case shapes in `NotificationCard`.
 - Notification behaviour (queue size, timeout, fade) lives in `Config.notifications` and Menu → Configuration → Notifications. Critical notifications never auto-hide.
+
+### Bar popups
+- Widget popups are `BarPopup { anchorItem: root; screen: root.QsWindow.window?.screen ?? null; ipcName: "..." }` with content placed inside; open with `popup.toggle()` (not `open = !open`: it guards the click that closes the focus grab). Popups live on the `Top` layer with `ExclusionMode.Normal` so they sit under *all* panels (there is another bar above ours). Don't switch them to Overlay/Ignore — they would overlap the bar.
+- Don't use `Shortcut` in windows (segfaults on hot reload); Esc is handled via `Keys.onEscapePressed`.
+- Popups are addressable over IPC for testing: `qs -c butler ipc call popup.<clock|network|bluetooth|battery> toggle`.
+- Network profiles are applied with `nmcli` (`services/NetInfo`); never test-apply against the live connection — use a throwaway `nmcli connection add ... autoconnect no` profile.
 
 ### Menu
 - Content lives in `MenuPages.qml`: a page is a function returning items (`name`, `comment`, `icon`/`iconSource`, `page`, `run`, `keepOpen`, `active`, `danger`, `keywords`, plus `value`/`adjust` for ←/→ settings and `backAfter`). Page ids may carry an argument: `cfg.ws.icon:5`. Add a section with a `page: "id"` item in `root()`, a `case` in `build()` and a `menu.title.<id>` key.

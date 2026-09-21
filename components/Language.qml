@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import "../theme"
@@ -38,4 +39,11 @@ Panel {
 
     Label { text: ""; color: Theme.accent }
     Label { text: root.layout; font.bold: true }
+
+    // клик — следующая раскладка (на всех клавиатурах); метка обновится по событию activelayout
+    overlay: MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        onClicked: Quickshell.execDetached(["hyprctl", "switchxkblayout", "all", "next"])
+    }
 }

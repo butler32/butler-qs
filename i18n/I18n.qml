@@ -189,6 +189,10 @@ Singleton {
             "cfg.sys.yellow": "Жёлтый порог",
             "cfg.sys.red": "Красный порог",
             "cfg.sys.thr.hint": "Шаг 5 (←/→)",
+            "mixer.output": "Вывод",
+            "mixer.input": "Ввод",
+            "mixer.apps": "Приложения",
+            "mixer.nodevice": "Нет устройства",
             "lang.ru": "Русский",
             "lang.en": "English"
         },
@@ -351,6 +355,10 @@ Singleton {
             "cfg.sys.yellow": "Yellow threshold",
             "cfg.sys.red": "Red threshold",
             "cfg.sys.thr.hint": "Step 5 (←/→)",
+            "mixer.output": "Output",
+            "mixer.input": "Input",
+            "mixer.apps": "Applications",
+            "mixer.nodevice": "No device",
             "lang.ru": "Русский",
             "lang.en": "English"
         }

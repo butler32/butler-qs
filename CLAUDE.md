@@ -81,6 +81,7 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 
 ### Hyprland
 - Hyprland ≥ 0.55 uses a Lua config. `Hyprland.dispatch()` takes a Lua expression: `Hyprland.dispatch("hl.dsp.focus({ workspace = 3 })")`, not the old `"workspace 3"` syntax.
+- Autostart: `qs -c butler -d` in `~/.config/hypr/configs/autostart.lua` (replaced ags `mybar` and `notifd`; the ags launcher/OSD are still used by their binds and are not replaced).
 - The Hyprland config lives in `~/.config/hypr` (binds in `configs/keybindings.lua`, use the `unless_dota(...)` wrapper like the other binds).
 
 ## Git

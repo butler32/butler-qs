@@ -58,11 +58,17 @@
 set -euo pipefail
 
 OVPN_CONFIG="__HOME__/vpn/germany/openvpn_full.ovpn"   # placeholder filled in by install.sh
+CONFIG_JSON="__HOME__/.local/state/quickshell/by-shell/butler/config.json"
 OPENVPN_BIN="/usr/bin/openvpn"
 IPTABLES="/usr/bin/iptables"
 IP6TABLES="/usr/bin/ip6tables"
+IP_BIN="/usr/bin/ip"
 PGREP="/usr/bin/pgrep"
 GREP="/usr/bin/grep"
+AWK="/usr/bin/awk"
+GETENT="/usr/bin/getent"
+TIMEOUT_BIN="/usr/bin/timeout"
+PYTHON3="/usr/bin/python3"
 SYSTEMD_NOTIFY="/usr/bin/systemd-notify"
 SYSTEMD_CAT="/usr/bin/systemd-cat"
 CHAIN="bvpn"
@@ -86,8 +92,17 @@ if "$PGREP" -x openvpn >/dev/null 2>&1; then
     die "another openvpn process is already running (Amnezia connected?) — stop it first"
 fi
 
+# Captured now, before openvpn's redirect-gateway replaces the default route —
+# this is the only point where "the original physical gateway" is still what
+# `ip route show default` actually reports. Needed for excluded-domain bypass
+# routes below; harmless to compute even if no domains end up excluded.
+ORIG_ROUTE=$("$IP_BIN" route show default | head -1)
+ORIG_GW=$(echo "$ORIG_ROUTE" | "$AWK" '{for(i=1;i<=NF;i++) if ($i=="via") print $(i+1)}')
+ORIG_IFACE=$(echo "$ORIG_ROUTE" | "$AWK" '{for(i=1;i<=NF;i++) if ($i=="dev") print $(i+1)}')
+
 OVPN_PID=""
 FW_UP=0
+EXCLUDE_ROUTES=""   # space-separated IPs we added a bypass /32 route for, torn down below
 
 teardown_fw() {
     [ "$FW_UP" -eq 1 ] || return 0
@@ -98,6 +113,9 @@ teardown_fw() {
     "$IPTABLES"  -X "$CHAIN" 2>/dev/null || true
     "$IP6TABLES" -F "$CHAIN" 2>/dev/null || true
     "$IP6TABLES" -X "$CHAIN" 2>/dev/null || true
+    for ip in $EXCLUDE_ROUTES; do
+        "$IP_BIN" route del "$ip/32" 2>/dev/null || true
+    done
     FW_UP=0
 }
 
@@ -177,6 +195,51 @@ for net in 10.0.0.0/8 169.254.0.0/16 172.16.0.0/12 192.168.0.0/16 224.0.0.0/4 25
 done
 "$IPTABLES" -A "$CHAIN" -p udp -d 255.255.255.255 --sport 68 --dport 67 -j ACCEPT
 "$IPTABLES" -A "$CHAIN" -d "$SERVER_IP" -j ACCEPT
+
+# Domains excluded from the tunnel (Config.network.vpnExcludedDomains, edited
+# from the Network popup's VPN section — read straight out of the Quickshell
+# state file, since it's just JSON and root can read any file). Resolved once,
+# right here — a domain whose IP changes later (common for CDN-backed sites)
+# stays excluded under its OLD IP until the next reconnect. That's a known,
+# accepted tradeoff: a live DNS-triggered refresh would mean a privileged
+# background loop adding/removing routes on its own, which is a bigger risk
+# than occasionally needing a reconnect to pick up a changed IP.
+if [ -f "$CONFIG_JSON" ] && [ -x "$PYTHON3" ] && [ -n "$ORIG_GW" ] && [ -n "$ORIG_IFACE" ]; then
+    DOMAINS=$("$PYTHON3" -c "
+import json
+try:
+    with open('$CONFIG_JSON') as f:
+        data = json.load(f)
+    for d in data.get('network', {}).get('vpnExcludedDomains', []):
+        if isinstance(d, str) and d.strip():
+            print(d.strip())
+except Exception:
+    pass
+" 2>/dev/null || true)
+    while IFS= read -r domain; do
+        [ -n "$domain" ] || continue
+        if ! [[ "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$ ]]; then
+            log "WARNING: skipping malformed excluded domain: $domain"
+            continue
+        fi
+        IPS=$("$TIMEOUT_BIN" 5 "$GETENT" ahostsv4 "$domain" 2>/dev/null | "$AWK" '{print $1}' | sort -u || true)
+        if [ -z "$IPS" ]; then
+            log "WARNING: could not resolve excluded domain: $domain"
+            continue
+        fi
+        while IFS= read -r ip; do
+            [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || continue
+            if "$IP_BIN" route add "$ip/32" via "$ORIG_GW" dev "$ORIG_IFACE" 2>/dev/null; then
+                EXCLUDE_ROUTES="$EXCLUDE_ROUTES $ip"
+                "$IPTABLES" -A "$CHAIN" -d "$ip" -j ACCEPT
+                log "excluded from VPN: $domain -> $ip"
+            fi
+        done <<< "$IPS"
+    done <<< "$DOMAINS"
+elif [ -f "$CONFIG_JSON" ] && ([ -z "$ORIG_GW" ] || [ -z "$ORIG_IFACE" ]); then
+    log "WARNING: could not determine the original gateway/interface, skipping domain exclusions"
+fi
+
 "$IPTABLES" -A "$CHAIN" -o "$TUN_IF" -j ACCEPT
 "$IPTABLES" -A "$CHAIN" -j REJECT
 

@@ -9,7 +9,8 @@ Type=notify
 NotifyAccess=main
 ExecStart=/opt/butler-vpn/butler-vpn-up.sh
 ExecStopPost=/opt/butler-vpn/butler-vpn-down.sh
-TimeoutStartSec=45
+# 30s tunnel wait + up to 5s per excluded domain (Config.network.vpnExcludedDomains) — generous headroom for a handful of them
+TimeoutStartSec=90
 TimeoutStopSec=25
 Restart=no
 

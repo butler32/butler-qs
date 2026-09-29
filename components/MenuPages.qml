@@ -23,6 +23,10 @@ import "../config"
 // Любые настройки бара живут в Меню → Конфигурация (см. cfg*), значения — в Config.
 // Чтобы добавить раздел: пункт с `page: "id"`, `case` в build() и ключ `menu.title.<id>`.
 QtObject {
+    // состояние подтверждения удаления домена из исключений VPN (vpnPage) — второй клик в течение 3с подтверждает
+    property string vpnConfirmDelete: ""
+    property Timer vpnConfirmTimer: Timer { interval: 3000; onTriggered: vpnConfirmDelete = "" }
+
     function title(id) {
         const [base, arg] = id.split(":")
         if (base === "cfg.sys.metric") return I18n.tr("metric." + arg)
@@ -31,6 +35,10 @@ QtObject {
 
     function build(id, query) {
         const [base, arg] = id.split(":")
+        if (base !== "vpn" && vpnConfirmDelete !== "") {
+            vpnConfirmTimer.stop()
+            vpnConfirmDelete = ""
+        }
         switch (base) {
         case "apps": return apps()
         case "themes": return themes()
@@ -80,13 +88,18 @@ QtObject {
 
     // butler-vpn.service (см. scripts/vpn/): коннект/дисконнект + домены вне
     // туннеля (Config.network.vpnExcludedDomains). Ввод домена — через
-    // строку поиска меню: набранный текст, если похож на домен,
-    // предлагает добавить.
+    // строку поиска меню: набранный текст, если похож
+    // на домен, предлагает добавить. Удаление домена —
+    // в два клика (vpnConfirmDelete), чтобы случайное Enter/клик на
+    // выбранном пункте не сносило его сразу.
     function vpnPage(query) {
+        const busy = NetInfo.vpnBusy
         const toggle = {
             name: NetInfo.vpnConnected ? I18n.tr("vpn.disconnect") : I18n.tr("vpn.connect"),
             comment: NetInfo.vpnStatus || I18n.tr("menu.vpn.hint"),
             icon: "",
+            value: busy ? I18n.tr("vpn.connecting")
+                   : NetInfo.vpnConnected ? I18n.tr("common.on") : I18n.tr("common.off"),
             active: NetInfo.vpnConnected,
             keepOpen: true,
             run: () => NetInfo.toggleVpn()
@@ -106,14 +119,26 @@ QtObject {
             items.push({ name: I18n.tr("vpn.exclude.hint"), icon: "", keepOpen: true })
         }
 
-        domains.forEach((d, i) => items.push({
-            name: d,
-            comment: I18n.tr("vpn.exclude.remove.hint"),
-            icon: "",
-            danger: true,
-            keepOpen: true,
-            run: () => Config.removeVpnExcludedDomain(i)
-        }))
+        domains.forEach((d, i) => {
+            const confirming = vpnConfirmDelete === d
+            items.push({
+                name: confirming ? I18n.tr("vpn.exclude.confirm").replace("%1", d) : d,
+                comment: confirming ? "" : I18n.tr("vpn.exclude.remove.hint"),
+                icon: "",
+                danger: true,
+                keepOpen: true,
+                run: () => {
+                    if (confirming) {
+                        vpnConfirmTimer.stop()
+                        vpnConfirmDelete = ""
+                        Config.removeVpnExcludedDomain(i)
+                    } else {
+                        vpnConfirmDelete = d
+                        vpnConfirmTimer.restart()
+                    }
+                }
+            })
+        })
 
         return items
     }

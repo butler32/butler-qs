@@ -28,6 +28,7 @@ PanelWindow {
             anchors.right: parent.right
             spacing: Theme.gap
             SysMon {}
+            ClaudeUsage {}
             Network {}
             Bluetooth {}
             Battery {}

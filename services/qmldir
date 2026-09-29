@@ -4,3 +4,4 @@ singleton NetInfo 1.0 NetInfo.qml
 singleton Windows 1.0 Windows.qml
 singleton Popups 1.0 Popups.qml
 singleton Osd 1.0 Osd.qml
+singleton ClaudeUsage 1.0 ClaudeUsage.qml

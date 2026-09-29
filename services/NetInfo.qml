@@ -20,11 +20,21 @@ Singleton {
     property string status: ""
     property bool statusError: false
 
+    // VPN — butler-vpn.service (systemd): OpenVPN + kill switch, see scripts/vpn/.
+    // Passwordless sudo is scoped to exactly `systemctl start/stop butler-vpn.service`
+    // (scripts/vpn/sudoers-butler-vpn) — nothing else needs elevation.
+    property string vpnState: "disconnected"   // disconnected | connecting | connected | failed
+    readonly property bool vpnConnected: vpnState === "connected"
+    readonly property bool vpnBusy: vpnState === "connecting" || vpnRunner.running
+    property string vpnStatus: ""
+    property bool vpnStatusError: false
+
     function refresh() {
         if (!info.running) info.running = true
         if (!wifiList.running) wifiList.running = true
         if (!known.running) known.running = true
         if (!radio.running) radio.running = true
+        if (!vpnPoll.running) vpnPoll.running = true
     }
 
     // ---------- Wi-Fi ----------
@@ -38,6 +48,40 @@ Singleton {
         else run([["nmcli", "device", "wifi", "connect", n.name]])
     }
     function disconnectWifi(n) { run([["nmcli", "connection", "down", "id", n.name]]) }
+
+    // ---------- VPN ----------
+
+    // systemctl start/stop blocks until butler-vpn.service actually reports ready
+    // (Type=notify — the unit signals readiness only once the tunnel and kill
+    // switch are up) or fails, so vpnRunner.running alone covers "connecting".
+    function vpnRun(cmd) {
+        if (vpnRunner.running) return
+        vpnStatus = ""
+        vpnStatusError = false
+        vpnRunner.command = cmd
+        vpnRunner.running = true
+    }
+    function connectVpn() { vpnRun(["sudo", "-n", "/usr/bin/systemctl", "start", "butler-vpn.service"]) }
+    function disconnectVpn() { vpnRun(["sudo", "-n", "/usr/bin/systemctl", "stop", "butler-vpn.service"]) }
+    function toggleVpn() { vpnConnected ? disconnectVpn() : connectVpn() }
+
+    Process {
+        id: vpnRunner
+        stderr: StdioCollector { id: vpnErr }
+        onExited: code => {
+            if (code === 0) {
+                root.vpnStatusError = false
+                root.vpnStatus = ""
+            } else {
+                root.vpnStatusError = true
+                // most likely causes: sudoers rule not installed yet (-n makes sudo fail
+                // fast instead of hanging on a password prompt it can't show), or the
+                // unit itself failed — see journalctl -u butler-vpn -e
+                root.vpnStatus = vpnErr.text.trim() || I18n.tr("vpn.failed")
+            }
+            vpnPoll.running = true
+        }
+    }
 
     // ---------- валидация ----------
 
@@ -143,6 +187,22 @@ Singleton {
         stdout: StdioCollector {
             onStreamFinished: root.knownNames = text.split("\n").map(root.fields)
                 .filter(f => f[1] === "802-11-wireless").map(f => f[0])
+        }
+    }
+
+    // "systemctl is-active" itself needs no privilege and exits non-zero for every
+    // state that isn't "active" — that's expected, so only stdout is read here.
+    Process {
+        id: vpnPoll
+        command: ["/usr/bin/systemctl", "is-active", "butler-vpn.service"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const s = text.trim()
+                if (s === "active") root.vpnState = "connected"
+                else if (s === "activating" || s === "deactivating") root.vpnState = "connecting"
+                else if (s === "failed") root.vpnState = "failed"
+                else root.vpnState = "disconnected"
+            }
         }
     }
 

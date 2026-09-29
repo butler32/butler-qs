@@ -59,8 +59,23 @@ QtObject {
             { name: I18n.tr("menu.config"), comment: I18n.tr("menu.config.hint"), icon: "", page: "config" },
             { name: I18n.tr("menu.themes"), comment: I18n.tr("menu.themes.hint"), icon: "", page: "themes" },
             { name: I18n.tr("menu.lang"), comment: I18n.tr("menu.lang.hint"), icon: "", page: "lang" },
-            { name: I18n.tr("menu.power"), comment: I18n.tr("menu.power.hint"), icon: "", page: "power" }
+            { name: I18n.tr("menu.power"), comment: I18n.tr("menu.power.hint"), icon: "", page: "power" },
+            vpnItem()
         ]
+    }
+
+    // Дублирует кнопку VPN из виджета сети (butler-vpn.service, см. scripts/vpn/)
+    function vpnItem() {
+        return {
+            name: I18n.tr("menu.vpn"),
+            comment: I18n.tr("menu.vpn.hint"),
+            icon: "",
+            value: NetInfo.vpnBusy ? I18n.tr("vpn.connecting")
+                   : NetInfo.vpnConnected ? I18n.tr("common.on") : I18n.tr("common.off"),
+            active: NetInfo.vpnConnected,
+            keepOpen: true,
+            run: () => NetInfo.toggleVpn()
+        }
     }
 
     // onPick(entry) — если задан, выбор приложения не запускает его, а отдаёт вызывающему

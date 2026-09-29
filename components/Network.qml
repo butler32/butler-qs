@@ -18,6 +18,21 @@ Panel {
     }
     Label { visible: root.wifiNet !== null; text: (root.wifiNet?.signal ?? 0) + "%"; font.pixelSize: Theme.fontSize - 1 }
 
+    Label {
+        id: vpnIcon
+        visible: NetInfo.vpnState !== "disconnected"
+        text: ""
+        color: NetInfo.vpnConnected ? Theme.accent : NetInfo.vpnState === "failed" ? Theme.danger : Theme.textDim
+        property real pulse: 1
+        opacity: NetInfo.vpnBusy ? pulse : 1
+        SequentialAnimation {
+            running: NetInfo.vpnBusy
+            loops: Animation.Infinite
+            NumberAnimation { target: vpnIcon; property: "pulse"; from: 1; to: 0.3; duration: 500; easing.type: Easing.InOutQuad }
+            NumberAnimation { target: vpnIcon; property: "pulse"; from: 0.3; to: 1; duration: 500; easing.type: Easing.InOutQuad }
+        }
+    }
+
     overlay: MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
@@ -90,6 +105,8 @@ Panel {
                 Layout.fillWidth: true
                 onEdit: i => { editor.load(i); popup.editIndex = i }
             }
+
+            VpnSection { Layout.fillWidth: true }
         }
 
         // ---------- редактор профиля ----------

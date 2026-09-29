@@ -2,13 +2,13 @@ import QtQuick
 import QtQuick.Layouts
 import "../theme"
 import "../i18n"
-import "../config"
 import "../services"
 
 // VPN — butler-vpn.service (systemd), a plain OpenVPN connection plus an
 // IPv6/LAN-scoped kill switch, installed separately (see scripts/vpn/). Toggling
 // runs `sudo systemctl start/stop butler-vpn.service`, passwordless via a scoped
-// sudoers rule — nothing here talks to nmcli or NetworkManager.
+// sudoers rule — nothing here talks to nmcli or NetworkManager. Excluded-domain
+// management lives in Menu → VPN, not here (components/MenuPages.qml).
 ColumnLayout {
     id: root
     spacing: Theme.gap
@@ -52,43 +52,5 @@ ColumnLayout {
         text: NetInfo.vpnStatus
         color: NetInfo.vpnStatusError ? Theme.danger : Theme.textDim
         font.pixelSize: Theme.fontSize - 2
-    }
-
-    // Домены, которые остаются вне туннеля — резолвятся один раз при
-    // подключении (см. butler-vpn-up.sh), поэтому изменения здесь применятся
-    // только со следующего подключения, не «на лету».
-    Label {
-        Layout.fillWidth: true
-        text: I18n.tr("net.vpn.exclude")
-        color: Theme.accent
-        font.pixelSize: Theme.fontSize - 2
-    }
-
-    Repeater {
-        model: Config.network.vpnExcludedDomains
-        delegate: RowLayout {
-            required property string modelData
-            required property int index
-            Layout.fillWidth: true
-            spacing: Theme.gap
-            Label { Layout.fillWidth: true; text: modelData; elide: Text.ElideRight }
-            Chip { icon: ""; danger: true; onClicked: Config.removeVpnExcludedDomain(index) }
-        }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: Theme.gap
-        Field {
-            id: domainField
-            Layout.fillWidth: true
-            placeholder: I18n.tr("net.vpn.exclude.placeholder")
-            onAccepted: { Config.addVpnExcludedDomain(text); text = "" }
-        }
-        Chip {
-            icon: ""
-            text: I18n.tr("net.new")
-            onClicked: { Config.addVpnExcludedDomain(domainField.text); domainField.text = "" }
-        }
     }
 }

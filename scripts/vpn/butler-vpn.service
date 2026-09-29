@@ -1,0 +1,19 @@
+[Unit]
+Description=Butler VPN (OpenVPN + kill switch) for the Quickshell bar/menu button
+Documentation=file:///opt/butler-vpn/butler-vpn-up.sh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/opt/butler-vpn/butler-vpn-up.sh
+ExecStopPost=/opt/butler-vpn/butler-vpn-down.sh
+TimeoutStartSec=45
+TimeoutStopSec=25
+Restart=no
+
+# Intentionally no [Install]/WantedBy — this is meant to be started manually from
+# the bar/menu, not on every boot. If you want auto-connect at login, add
+# `WantedBy=multi-user.target` yourself and `systemctl enable` it — that is a
+# separate decision from installing this unit.

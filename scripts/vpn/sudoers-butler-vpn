@@ -1,0 +1,8 @@
+# Lets the Quickshell bar/menu toggle butler-vpn.service without an interactive
+# password prompt (Quickshell's Process has no TTY to type one into). Scoped to
+# exactly these two fixed commands — nothing else gets NOPASSWD.
+#
+# This is a template with a placeholder in place of a real username below.
+# Don't install this file verbatim — run install.sh, which fills it in and
+# validates the result with visudo before it ever touches /etc/sudoers.d.
+__USER__ ALL=(root) NOPASSWD: /usr/bin/systemctl start butler-vpn.service, /usr/bin/systemctl stop butler-vpn.service

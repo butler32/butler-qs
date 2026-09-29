@@ -79,6 +79,10 @@ Singleton {
             property JsonObject network: JsonObject {
                 // { name, network (имя NM-подключения), mode: "dhcp"|"static", ip, mask, gateway, dns }
                 property var profiles: []
+                // домены, которые VPN не должен заворачивать в туннель; читается
+                // напрямую из этого файла привилегированным butler-vpn-up.sh
+                // (см. scripts/vpn/), резолвится один раз при подключении
+                property var vpnExcludedDomains: []
             }
         }
     }
@@ -110,5 +114,14 @@ Singleton {
     }
     function deleteNetworkProfile(index) {
         network.profiles = network.profiles.filter((_, i) => i !== index)
+    }
+
+    function addVpnExcludedDomain(domain) {
+        const d = domain.trim().toLowerCase()
+        if (!d || network.vpnExcludedDomains.includes(d)) return
+        network.vpnExcludedDomains = [...network.vpnExcludedDomains, d]
+    }
+    function removeVpnExcludedDomain(index) {
+        network.vpnExcludedDomains = network.vpnExcludedDomains.filter((_, i) => i !== index)
     }
 }

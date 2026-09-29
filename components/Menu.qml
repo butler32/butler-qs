@@ -66,7 +66,7 @@ PanelWindow {
     }
 
     readonly property var results: {
-        const items = pages.build(pageId)
+        const items = pages.build(pageId, query)
         const q = query.trim().toLowerCase()
         if (q === "") return items
         return items.map(it => ({ it: it, s: score(it, q) }))

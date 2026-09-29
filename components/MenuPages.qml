@@ -29,7 +29,7 @@ QtObject {
         return I18n.tr("menu.title." + base) + (arg ? " " + arg : "")
     }
 
-    function build(id) {
+    function build(id, query) {
         const [base, arg] = id.split(":")
         switch (base) {
         case "apps": return apps()
@@ -37,6 +37,7 @@ QtObject {
         case "power": return power()
         case "lang": return langs()
         case "config": return config()
+        case "vpn": return vpnPage(query)
         case "cfg.ws": return cfgWorkspaces()
         case "cfg.notif": return cfgNotifications()
         case "cfg.media": return cfgMedia()
@@ -59,23 +60,62 @@ QtObject {
             { name: I18n.tr("menu.config"), comment: I18n.tr("menu.config.hint"), icon: "", page: "config" },
             { name: I18n.tr("menu.themes"), comment: I18n.tr("menu.themes.hint"), icon: "", page: "themes" },
             { name: I18n.tr("menu.lang"), comment: I18n.tr("menu.lang.hint"), icon: "", page: "lang" },
-            { name: I18n.tr("menu.power"), comment: I18n.tr("menu.power.hint"), icon: "", page: "power" },
-            vpnItem()
+            vpnRootEntry(),
+            { name: I18n.tr("menu.power"), comment: I18n.tr("menu.power.hint"), icon: "", page: "power" }
         ]
     }
 
-    // Дублирует кнопку VPN из виджета сети (butler-vpn.service, см. scripts/vpn/)
-    function vpnItem() {
+    // Точка входа в раздел VPN — статус виден сразу, сам коннект/дисконнект и
+    // список исключённых доменов — внутри страницы (vpnPage)
+    function vpnRootEntry() {
         return {
             name: I18n.tr("menu.vpn"),
             comment: I18n.tr("menu.vpn.hint"),
             icon: "",
             value: NetInfo.vpnBusy ? I18n.tr("vpn.connecting")
                    : NetInfo.vpnConnected ? I18n.tr("common.on") : I18n.tr("common.off"),
+            page: "vpn"
+        }
+    }
+
+    // butler-vpn.service (см. scripts/vpn/): коннект/дисконнект + домены вне
+    // туннеля (Config.network.vpnExcludedDomains). Ввод домена — через
+    // строку поиска меню: набранный текст, если похож на домен,
+    // предлагает добавить.
+    function vpnPage(query) {
+        const toggle = {
+            name: NetInfo.vpnConnected ? I18n.tr("vpn.disconnect") : I18n.tr("vpn.connect"),
+            comment: NetInfo.vpnStatus || I18n.tr("menu.vpn.hint"),
+            icon: "",
             active: NetInfo.vpnConnected,
             keepOpen: true,
             run: () => NetInfo.toggleVpn()
         }
+        const domains = Config.network.vpnExcludedDomains
+        const items = [toggle]
+
+        const q = (query ?? "").trim().toLowerCase()
+        if (q && /\.\w/.test(q) && !/\s/.test(q) && !domains.includes(q)) {
+            items.push({
+                name: I18n.tr("vpn.exclude.add").replace("%1", q),
+                icon: "",
+                keepOpen: true,
+                run: () => Config.addVpnExcludedDomain(q)
+            })
+        } else if (!q && domains.length === 0) {
+            items.push({ name: I18n.tr("vpn.exclude.hint"), icon: "", keepOpen: true })
+        }
+
+        domains.forEach((d, i) => items.push({
+            name: d,
+            comment: I18n.tr("vpn.exclude.remove.hint"),
+            icon: "",
+            danger: true,
+            keepOpen: true,
+            run: () => Config.removeVpnExcludedDomain(i)
+        }))
+
+        return items
     }
 
     // onPick(entry) — если задан, выбор приложения не запускает его, а отдаёт вызывающему

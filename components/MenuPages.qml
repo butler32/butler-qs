@@ -379,7 +379,10 @@ QtObject {
     }
 
     function cfgClaude() {
+        const c = Config.claudeUsage
         return [
+            toggleItem(I18n.tr("cfg.claude.enabled"), I18n.tr("cfg.claude.enabled.hint"), "\uf04b",
+                       () => c.enabled, v => c.enabled = v),
             { name: I18n.tr("claude.session.title"), icon: "\uf017",
               value: I18n.tr("mode." + Config.claudeUsage.session.mode), page: "cfg.claude.metric:session" },
             { name: I18n.tr("claude.week.title"), icon: "\uf073",

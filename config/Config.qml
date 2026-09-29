@@ -81,6 +81,7 @@ Singleton {
             property JsonObject claudeUsage: JsonObject {
                 // порог/видимость — процент ИСПОЛЬЗОВАННОГО лимита подписки (как у sysmon);
                 // в баре при этом показывается остаток (100 − used), см. components/ClaudeUsage.qml
+                property bool enabled: true
                 property MetricConfig session: MetricConfig { mode: "always"; yellow: 70; red: 90 }
                 property MetricConfig week: MetricConfig { mode: "always"; yellow: 70; red: 90 }
             }

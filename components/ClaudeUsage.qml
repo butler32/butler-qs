@@ -13,6 +13,7 @@ import "../services"
 // пороги — от used%, симметрично CPU/RAM).
 Panel {
     id: root
+    visible: Config.claudeUsage.enabled
     readonly property var ids: ["session", "week"]
 
     function data(id) { return id === "session" ? ClaudeUsage.session : ClaudeUsage.week }

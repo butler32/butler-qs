@@ -305,6 +305,8 @@ QtObject {
     function cfgMedia() {
         const c = Config.media
         return [
+            toggleItem(I18n.tr("cfg.media.enabled"), I18n.tr("cfg.media.enabled.hint"), "\uf04b",
+                       () => c.enabled, v => c.enabled = v),
             toggleItem(I18n.tr("cfg.media.prevnext"), I18n.tr("cfg.media.prevnext.hint"), "\uf051",
                        () => c.showPrevNext, v => c.showPrevNext = v),
             { name: I18n.tr("cfg.media.app"), comment: I18n.tr("cfg.media.app.hint"), icon: "\uf009",

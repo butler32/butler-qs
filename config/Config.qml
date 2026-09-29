@@ -50,6 +50,7 @@ Singleton {
                 property bool pauseAllOnHover: false
             }
             property JsonObject media: JsonObject {
+                property bool enabled: true
                 property bool showPrevNext: true
                 // Показывать только плеер этого приложения (часть identity/desktop-entry,
                 // например "spotify"); пусто = любой, играющий в приоритете

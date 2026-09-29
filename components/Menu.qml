@@ -152,7 +152,7 @@ PanelWindow {
                         Keys.onPressed: e => {
                             const ctrl = e.modifiers & Qt.ControlModifier
                             if (e.key === Qt.Key_Escape) win.close()
-                            else if (e.key === Qt.Key_Backspace && input.text === "") win.back()
+                            else if (e.key === Qt.Key_Backspace && input.text === "" && !e.isAutoRepeat) win.back()
                             else if (e.key === Qt.Key_Left && (e.modifiers & Qt.AltModifier)) win.back()
                             else if (e.key === Qt.Key_Left && win.adjust(-1)) {}
                             else if (e.key === Qt.Key_Right && win.adjust(1)) {}

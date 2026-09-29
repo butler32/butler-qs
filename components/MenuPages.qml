@@ -30,6 +30,7 @@ QtObject {
     function title(id) {
         const [base, arg] = id.split(":")
         if (base === "cfg.sys.metric") return I18n.tr("metric." + arg)
+        if (base === "cfg.claude.metric") return I18n.tr("claude." + arg + ".title")
         return I18n.tr("menu.title." + base) + (arg ? " " + arg : "")
     }
 
@@ -54,6 +55,8 @@ QtObject {
         case "cfg.apps": return apps(e => Config.togglePinnedApp(e.id), 0, e => Config.apps.pinned.includes(e.id))
         case "cfg.sys": return cfgSys()
         case "cfg.osd": return cfgOsd()
+        case "cfg.claude": return cfgClaude()
+        case "cfg.claude.metric": return cfgClaudeMetric(arg)
         case "cfg.sys.metric": return cfgSysMetric(arg)
         case "cfg.ws.icons": return cfgWorkspaceIcons()
         case "cfg.ws.icon": return cfgWorkspaceIcon(arg)
@@ -200,7 +203,8 @@ QtObject {
             { name: I18n.tr("cfg.clock"), comment: I18n.tr("cfg.clock.hint"), icon: "\uf017", page: "cfg.clock" },
             { name: I18n.tr("cfg.apps"), comment: I18n.tr("cfg.apps.hint"), icon: "\uf00a", page: "cfg.apps" },
             { name: I18n.tr("cfg.sys"), comment: I18n.tr("cfg.sys.hint"), icon: "\uf080", page: "cfg.sys" },
-            { name: I18n.tr("cfg.osd"), comment: I18n.tr("cfg.osd.hint"), icon: "\uf028", page: "cfg.osd" }
+            { name: I18n.tr("cfg.osd"), comment: I18n.tr("cfg.osd.hint"), icon: "\uf028", page: "cfg.osd" },
+            { name: I18n.tr("cfg.claude"), comment: I18n.tr("cfg.claude.hint"), icon: "\uf121", page: "cfg.claude" }
         ]
     }
 
@@ -369,6 +373,29 @@ QtObject {
               value: I18n.tr("pos." + c.position), adjust: cyclePos, keepOpen: true, run: () => cyclePos(1) },
             { name: I18n.tr("cfg.osd.test"), comment: I18n.tr("cfg.osd.test.hint"), icon: "\uf1d8", keepOpen: true,
               run: () => Osd.show("volume", 50) }
+        ]
+    }
+
+    function cfgClaude() {
+        return [
+            { name: I18n.tr("claude.session.title"), icon: "\uf017",
+              value: I18n.tr("mode." + Config.claudeUsage.session.mode), page: "cfg.claude.metric:session" },
+            { name: I18n.tr("claude.week.title"), icon: "\uf073",
+              value: I18n.tr("mode." + Config.claudeUsage.week.mode), page: "cfg.claude.metric:week" }
+        ]
+    }
+
+    function cfgClaudeMetric(id) {
+        const c = Config.claudeUsage[id]
+        const modes = monitorModes
+        const cycle = d => { c.mode = modes[(modes.indexOf(c.mode) + d + modes.length) % modes.length] }
+        return [
+            { name: I18n.tr("cfg.sys.mode"), comment: I18n.tr("cfg.sys.mode.hint"), icon: "\uf06e",
+              value: I18n.tr("mode." + c.mode), adjust: cycle, keepOpen: true, run: () => cycle(1) },
+            numberItem(I18n.tr("cfg.sys.yellow"), I18n.tr("cfg.sys.thr.hint"), "\uf071",
+                       () => c.yellow, v => c.yellow = v, 0, 100, 5, v => v + "%"),
+            numberItem(I18n.tr("cfg.sys.red"), I18n.tr("cfg.sys.thr.hint"), "\uf06a",
+                       () => c.red, v => c.red = v, 0, 100, 5, v => v + "%")
         ]
     }
 }

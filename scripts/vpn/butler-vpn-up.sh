@@ -103,6 +103,9 @@ ORIG_IFACE=$(echo "$ORIG_ROUTE" | "$AWK" '{for(i=1;i<=NF;i++) if ($i=="dev") pri
 OVPN_PID=""
 FW_UP=0
 EXCLUDE_ROUTES=""   # space-separated IPs we added a bypass /32 route for, torn down below
+STOP_REQUESTED=0    # set only by the TERM/INT handler — distinguishes "systemctl stop asked
+                    # us to" from "openvpn exited on its own" so a normal stop reports success
+                    # to systemd instead of the trap's own re-exit(143) reading as a crash
 
 teardown_fw() {
     [ "$FW_UP" -eq 1 ] || return 0
@@ -122,7 +125,10 @@ teardown_fw() {
 cleanup() {
     local code=$?
     trap - EXIT TERM INT
-    log "shutting down (exit code so far: $code)"
+    if [ "$STOP_REQUESTED" -eq 1 ]; then
+        code=0
+    fi
+    log "shutting down (exit code: $code, stop requested: $STOP_REQUESTED)"
     "$SYSTEMD_NOTIFY" --stopping 2>/dev/null || true
     if [ -n "$OVPN_PID" ] && kill -0 "$OVPN_PID" 2>/dev/null; then
         log "sending SIGTERM to openvpn (pid $OVPN_PID)"
@@ -140,7 +146,12 @@ cleanup() {
     log "stopped"
     exit "$code"
 }
-trap cleanup EXIT TERM INT
+on_stop_signal() {
+    STOP_REQUESTED=1
+    cleanup
+}
+trap cleanup EXIT
+trap on_stop_signal TERM INT
 
 log "starting openvpn: $OVPN_CONFIG"
 "$SYSTEMD_NOTIFY" --status="starting openvpn" 2>/dev/null || true

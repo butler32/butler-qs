@@ -81,6 +81,7 @@ QtObject {
         case "cfg.night": return cfgNight()
         case "cfg.shot": return cfgShot()
         case "cfg.clip": return cfgClip()
+        case "cfg.backup": return cfgBackup()
         case "cfg.claude": return cfgClaude()
         case "cfg.claude.metric": return cfgClaudeMetric(arg)
         case "cfg.sys.metric": return cfgSysMetric(arg)
@@ -308,6 +309,7 @@ QtObject {
             { name: I18n.tr("cfg.night"), comment: I18n.tr("cfg.night.hint"), icon: "\uf186", page: "cfg.night" },
             { name: I18n.tr("cfg.shot"), comment: I18n.tr("cfg.shot.hint"), icon: "\uf030", page: "cfg.shot" },
             { name: I18n.tr("cfg.clip"), comment: I18n.tr("cfg.clip.hint"), icon: "\uf0ea", page: "cfg.clip" },
+            { name: I18n.tr("cfg.backup"), comment: I18n.tr("cfg.backup.hint"), icon: "\uf0c7", page: "cfg.backup" },
             { name: I18n.tr("cfg.notif"), comment: I18n.tr("cfg.notif.hint"), icon: "\uf0f3", page: "cfg.notif" },
             { name: I18n.tr("cfg.media"), comment: I18n.tr("cfg.media.hint"), icon: "\uf001", page: "cfg.media" },
             { name: I18n.tr("cfg.clock"), comment: I18n.tr("cfg.clock.hint"), icon: "\uf017", page: "cfg.clock" },
@@ -490,6 +492,15 @@ QtObject {
                        () => c.maxItems, v => c.maxItems = v, 10, 500, 10),
             confirmed("clipwipe", { name: I18n.tr("cfg.clip.wipe"), comment: I18n.tr("cfg.clip.wipe.hint"), icon: "\uf1f8",
                                     danger: true, run: () => Clipboard.wipe() })
+        ]
+    }
+
+    function cfgBackup() {
+        return [
+            { name: I18n.tr("cfg.backup.export"), comment: Config.bundlePath, icon: "\uf093", keepOpen: true,
+              run: () => Config.exportSettings() },
+            { name: I18n.tr("cfg.backup.import"), comment: I18n.tr("cfg.backup.import.hint"), icon: "\uf019", keepOpen: true,
+              run: () => Config.importSettings() }
         ]
     }
 

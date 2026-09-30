@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../i18n"
 
 // Настройки бара, редактируются через Меню → Конфигурация и хранятся в JSON
 // в state-директории шелла. Любая новая опция бара: поле здесь + пункт в
@@ -136,6 +137,50 @@ Singleton {
                 property var vpnExcludedDomains: []
             }
         }
+    }
+
+    // ---------- экспорт / импорт настроек ----------
+
+    // Один файл: все настройки бара (config.json) + язык. Лежит в домашней папке,
+    // чтобы его было легко унести на другую машину.
+    readonly property string bundlePath: Quickshell.env("HOME") + "/butler-qs-settings.json"
+    property bool importing: false
+
+    function notify(key) {
+        Quickshell.execDetached(["notify-send", "-a", "Quickshell", I18n.tr("backup.title"), I18n.tr(key).replace("%1", bundlePath)])
+    }
+
+    function exportSettings() {
+        let cfg
+        try { cfg = JSON.parse(file.text()) } catch (e) { notify("backup.failed"); return }
+        bundle.setText(JSON.stringify({ version: 1, lang: I18n.lang, config: cfg }, null, 4))
+        notify("backup.exported")
+    }
+
+    function importSettings() {
+        importing = true
+        bundle.reload()
+    }
+
+    FileView {
+        id: bundle
+        path: root.bundlePath
+        printErrors: false
+        onLoaded: {
+            if (!root.importing) return
+            root.importing = false
+            try {
+                const data = JSON.parse(text())
+                if (typeof data.config !== "object" || data.config === null) throw new Error("no config")
+                file.setText(JSON.stringify(data.config, null, 4))
+                file.reload()
+                if (data.lang) I18n.set(data.lang)
+                root.notify("backup.imported")
+            } catch (e) {
+                root.notify("backup.invalid")
+            }
+        }
+        onLoadFailed: { if (root.importing) { root.importing = false; root.notify("backup.missing") } }
     }
 
     function setWorkspaceIcon(id, spec) {

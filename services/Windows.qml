@@ -16,6 +16,12 @@ Singleton {
         })
     }
 
+    function address(t) { return t.address.startsWith("0x") ? t.address : "0x" + t.address }
+
+    function close(t) {
+        Hyprland.dispatch("hl.dsp.window.close({ window = \"address:" + address(t) + "\" })")
+    }
+
     // фокус на окно; если оно на другом воркспейсе — переключает и его
     function focus(t) {
         const a = t.address

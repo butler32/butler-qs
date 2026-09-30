@@ -65,15 +65,28 @@ PanelWindow {
         return extra.includes(q) ? 1 : 0
     }
 
-    readonly property var results: {
+    // rid — идентичность строки для ScriptModel: при пересборке страницы (подтверждение
+    // удаления, смена значения) строки обновляются на месте, без мигания и сброса выбора
+    function withIds(items) {
+        return items.map((it, i) => Object.assign({ rid: it.id ?? (i + ":" + it.name) }, it))
+    }
+
+    readonly property var results: withIds(filtered)
+    readonly property var filtered: {
         const items = pages.build(pageId, query)
         const q = query.trim().toLowerCase()
         if (q === "") return items
-        return items.map(it => ({ it: it, s: score(it, q) }))
-            .filter(x => x.s > 0)
-            .sort((a, b) => b.s - a.s)
-            .map(x => x.it)
+        // sticky-пункты (результат калькулятора) поиск не отфильтровывает и держит первыми
+        return [...items.filter(it => it.sticky),
+                ...items.filter(it => !it.sticky)
+                    .map(it => ({ it: it, s: score(it, q) }))
+                    .filter(x => x.s > 0)
+                    .sort((a, b) => b.s - a.s)
+                    .map(x => x.it)]
     }
+
+    onPageIdChanged: pages.opened(pageId)
+    Component.onCompleted: pages.opened(pageId)
 
     function goto(id) { pageStack = [...pageStack, id]; input.text = "" }
     function back() {
@@ -81,7 +94,6 @@ PanelWindow {
         else win.close()
     }
     // Смена настроек пересобирает модель и сбрасывает выбор — возвращаем его на место
-    // fn может вернуть число — на сколько строк сдвинулся выбранный пункт (сдвиг порядка)
     // fn может вернуть число — на сколько строк сдвинулся выбранный пункт (сдвиг порядка)
     function keepSelection(fn) {
         const i = list.currentIndex
@@ -97,14 +109,20 @@ PanelWindow {
             pageStack = pageStack.slice(0, Math.max(1, pageStack.length - it.backAfter))
             input.text = ""
         } else if (it.keepOpen) {
-            keepSelection(() => { if (it.run) it.run() })
+            if (it.clearQuery) { if (it.run) it.run(); input.text = "" }   // после ввода строка поиска пуста
+            else keepSelection(() => { if (it.run) it.run() })
         } else {
             if (it.run) it.run()
             win.close()
         }
     }
+    // закрыть то, на что указывает пункт (окно в списке окон); список остаётся открытым
+    function closeItem(it) {
+        const target = it ?? win.results[list.currentIndex]
+        if (target?.close) keepSelection(() => target.close())
+    }
     function adjust(d) {
-        const it = list.model[list.currentIndex]
+        const it = win.results[list.currentIndex]
         if (it?.adjust) { keepSelection(() => it.adjust(d)); return true }
         return false
     }
@@ -133,7 +151,21 @@ PanelWindow {
                     anchors.leftMargin: Theme.padding
                     anchors.rightMargin: Theme.padding
                     spacing: Math.max(Theme.gap, 8)
-                    Label { text: ""; color: Theme.accent }
+                    // на вложенной странице иконка поиска превращается в кнопку «назад» (для управления мышью)
+                    Label {
+                        readonly property bool canGoBack: win.pageStack.length > 1
+                        text: canGoBack ? "\uf060" : ""
+                        color: backArea.containsMouse ? Theme.text : Theme.accent
+                        MouseArea {
+                            id: backArea
+                            anchors.fill: parent
+                            anchors.margins: -6
+                            enabled: parent.canGoBack
+                            hoverEnabled: true
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: win.back()
+                        }
+                    }
                     TextInput {
                         id: input
                         Layout.fillWidth: true
@@ -157,11 +189,15 @@ PanelWindow {
                             if (e.key === Qt.Key_Escape) win.close()
                             else if (e.key === Qt.Key_Backspace && input.text === "" && !e.isAutoRepeat) win.back()
                             else if (e.key === Qt.Key_Left && (e.modifiers & Qt.AltModifier)) win.back()
+                            else if ((ctrl && e.key === Qt.Key_W) || (e.key === Qt.Key_Delete && input.cursorPosition === input.text.length)) {
+                                if (!win.results[list.currentIndex]?.close) return
+                                win.closeItem()
+                            }
                             else if (e.key === Qt.Key_Left && win.adjust(-1)) {}
                             else if (e.key === Qt.Key_Right && win.adjust(1)) {}
                             else if (e.key === Qt.Key_Down || (ctrl && (e.key === Qt.Key_N || e.key === Qt.Key_J))) list.incrementCurrentIndex()
                             else if (e.key === Qt.Key_Up || (ctrl && (e.key === Qt.Key_P || e.key === Qt.Key_K))) list.decrementCurrentIndex()
-                            else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) win.activate(list.model[list.currentIndex])
+                            else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) win.activate(win.results[list.currentIndex])
                             else return
                             e.accepted = true
                         }
@@ -174,7 +210,7 @@ PanelWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                model: win.results
+                model: ScriptModel { values: win.results; objectProp: "rid" }
                 currentIndex: 0
                 boundsBehavior: Flickable.StopAtBounds
                 highlightMoveDuration: 0
@@ -191,6 +227,7 @@ PanelWindow {
                     color: selected ? Theme.accent : "transparent"
 
                     RowLayout {
+                        z: 1   // выше MouseArea строки: кнопка закрытия получает свои клики
                         anchors.fill: parent
                         anchors.leftMargin: Theme.padding
                         anchors.rightMargin: Theme.padding
@@ -234,8 +271,35 @@ PanelWindow {
                             color: item.selected ? Theme.accentText : Theme.accent
                         }
                         Label {
-                            visible: !!item.modelData.page || !!item.modelData.active
-                            text: item.modelData.page ? "\uf054" : "\uf00c"
+                            visible: !!item.modelData.close
+                            text: "\uf00d"
+                            color: closeArea.containsMouse ? Theme.danger : item.selected ? Theme.accentText : Theme.textDim
+                            MouseArea {
+                                id: closeArea
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: win.closeItem(item.modelData)
+                            }
+                        }
+                        // пункт-раздел: плашка со стрелкой — сразу видно, что внутрь можно зайти
+                        Rectangle {
+                            visible: !!item.modelData.page
+                            Layout.preferredWidth: Theme.menuItem * 0.55
+                            Layout.preferredHeight: Theme.menuItem * 0.55
+                            radius: Theme.radiusItem
+                            color: item.selected ? Qt.alpha(Theme.accentText, 0.2) : Theme.surfaceAlt
+                            Label {
+                                anchors.centerIn: parent
+                                text: "\uf054"
+                                font.bold: true
+                                color: item.selected ? Theme.accentText : Theme.accent
+                            }
+                        }
+                        Label {
+                            visible: !item.modelData.page && !!item.modelData.active
+                            text: "\uf00c"
                             color: item.selected ? Theme.accentText : Theme.textDim
                         }
                     }

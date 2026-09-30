@@ -22,6 +22,7 @@ Singleton {
     readonly property var tray: adapter.tray
     readonly property var night: adapter.night
     readonly property var screenshot: adapter.screenshot
+    readonly property var clipboard: adapter.clipboard
 
     FileView {
         id: file
@@ -120,6 +121,11 @@ Singleton {
                 property bool save: true
                 property bool copy: true
                 property bool notify: true
+            }
+            property JsonObject clipboard: JsonObject {
+                // История буфера обмена (cliphist + wl-paste)
+                property bool enabled: true
+                property int maxItems: 50
             }
             property JsonObject network: JsonObject {
                 // { name, network (имя NM-подключения), mode: "dhcp"|"static", ip, mask, gateway, dns }

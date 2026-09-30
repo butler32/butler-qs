@@ -7,3 +7,5 @@ singleton Osd 1.0 Osd.qml
 singleton ClaudeUsage 1.0 ClaudeUsage.qml
 singleton NightLight 1.0 NightLight.qml
 singleton Screenshot 1.0 Screenshot.qml
+singleton Calc 1.0 Calc.qml
+singleton Clipboard 1.0 Clipboard.qml

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import "../services"
 import Quickshell.Services.Mpris
+import Quickshell.Hyprland
 import "../theme"
 import "../i18n"
 import "../config"
@@ -27,6 +28,17 @@ QtObject {
     property string vpnConfirmDelete: ""
     property Timer vpnConfirmTimer: Timer { interval: 3000; onTriggered: vpnConfirmDelete = "" }
 
+    // второй клик в течение 3с подтверждает опасное действие (power)
+    property string confirmKey: ""
+    property Timer confirmTimer: Timer { interval: 3000; onTriggered: confirmKey = "" }
+
+    // вызывается при открытии страницы: подтянуть данные, которых нет в реактивных источниках
+    function opened(id) {
+        const base = id.split(":")[0]
+        if (base === "clip") Clipboard.refresh()
+        else if (base === "windows") Hyprland.refreshToplevels()
+    }
+
     function title(id) {
         const [base, arg] = id.split(":")
         if (base === "cfg.sys.metric") return I18n.tr("metric." + arg)
@@ -36,12 +48,19 @@ QtObject {
 
     function build(id, query) {
         const [base, arg] = id.split(":")
+        if (base !== "power" && base !== "cfg.clip" && confirmKey !== "") {
+            confirmTimer.stop()
+            confirmKey = ""
+        }
         if (base !== "vpn" && vpnConfirmDelete !== "") {
             vpnConfirmTimer.stop()
             vpnConfirmDelete = ""
         }
         switch (base) {
-        case "apps": return apps()
+        case "apps": return withCalc(apps(), query)
+        case "windows": return windows()
+        case "clip": return clipboard()
+        case "shot": return screenshots()
         case "themes": return themes()
         case "power": return power()
         case "lang": return langs()
@@ -61,23 +80,85 @@ QtObject {
         case "cfg.tray": return cfgTray()
         case "cfg.night": return cfgNight()
         case "cfg.shot": return cfgShot()
+        case "cfg.clip": return cfgClip()
         case "cfg.claude": return cfgClaude()
         case "cfg.claude.metric": return cfgClaudeMetric(arg)
         case "cfg.sys.metric": return cfgSysMetric(arg)
         case "cfg.ws.icons": return cfgWorkspaceIcons()
         case "cfg.ws.icon": return cfgWorkspaceIcon(arg)
         case "cfg.ws.app": return apps(e => Config.setWorkspaceIcon(arg, "icon:" + e.icon), 2)
-        default: return root()
+        default: return withCalc(root(), query)
         }
     }
 
     function root() {
         return [
             { name: I18n.tr("menu.apps"), comment: I18n.tr("menu.apps.hint"), icon: "", page: "apps" },
+            { name: I18n.tr("menu.windows"), comment: I18n.tr("menu.windows.hint"), icon: "\uf2d2", page: "windows" },
+            ...(Clipboard.active ? [{ name: I18n.tr("menu.clip"), comment: I18n.tr("menu.clip.hint"), icon: "\uf0ea", page: "clip" }] : []),
+            { name: I18n.tr("menu.shot"), comment: I18n.tr("menu.shot.hint"), icon: "\uf030", page: "shot" },
             { name: I18n.tr("menu.config"), comment: I18n.tr("menu.config.hint"), icon: "", page: "config" },
             { name: I18n.tr("menu.themes"), comment: I18n.tr("menu.themes.hint"), icon: "", page: "themes" },
             vpnRootEntry(),
             { name: I18n.tr("menu.power"), comment: I18n.tr("menu.power.hint"), icon: "", danger: true, page: "power" }
+        ]
+    }
+
+    // Калькулятор / конвертер: если набранное — выражение, первым пунктом идёт результат
+    // (sticky — не отфильтровывается поиском); Enter копирует его в буфер обмена.
+    function withCalc(items, query) {
+        const r = Calc.evaluate(query)
+        if (!r) return items
+        return [{
+            name: "= " + r.label,
+            comment: I18n.tr("calc.copy"),
+            icon: "\uf1ec",
+            sticky: true,
+            run: () => Quickshell.execDetached(["wl-copy", r.value])
+        }, ...items]
+    }
+
+    // Открытые окна, недавно активные — первыми; выбор переключает на окно (и воркспейс)
+    function windows() {
+        return Hyprland.toplevels.values
+            .filter(t => t.lastIpcObject?.mapped !== false)
+            .map(t => {
+                const o = t.lastIpcObject ?? {}
+                const cls = o.class ?? ""
+                const entry = cls ? DesktopEntries.heuristicLookup(cls) : null
+                return {
+                    order: o.focusHistoryID ?? 999,
+                    item: {
+                        name: t.title || cls || "?",
+                        comment: cls,
+                        iconSource: Quickshell.iconPath(entry?.icon ?? cls.toLowerCase(), "application-x-executable"),
+                        value: I18n.tr("ws.n").replace("%1", t.workspace?.id ?? "?"),
+                        keywords: [cls, o.initialClass ?? "", o.initialTitle ?? ""],
+                        run: () => Windows.focus(t),
+                        close: () => Windows.close(t)
+                    }
+                }
+            })
+            .sort((a, b) => a.order - b.order)
+            .map(x => x.item)
+    }
+
+    function clipboard() {
+        if (Clipboard.entries.length === 0)
+            return [{ name: I18n.tr("clip.empty"), comment: I18n.tr("clip.empty.hint"), icon: "\uf0ea", keepOpen: true }]
+        return Clipboard.entries.map(e => ({
+            name: e.image ? I18n.tr("clip.image") : e.text,
+            comment: e.image ? e.text : "",
+            icon: e.image ? "\uf03e" : "\uf0ea",
+            run: () => Clipboard.copy(e.id)
+        }))
+    }
+
+    function screenshots() {
+        return [
+            { name: I18n.tr("shot.area"), comment: I18n.tr("shot.area.hint"), icon: "\uf125", run: () => Screenshot.take("area") },
+            { name: I18n.tr("shot.screen"), comment: I18n.tr("shot.screen.hint"), icon: "\uf108", run: () => Screenshot.take("screen") },
+            { name: I18n.tr("shot.window"), comment: I18n.tr("shot.window.hint"), icon: "\uf2d0", run: () => Screenshot.take("window") }
         ]
     }
 
@@ -121,6 +202,7 @@ QtObject {
                 name: I18n.tr("vpn.exclude.add").replace("%1", q),
                 icon: "",
                 keepOpen: true,
+                clearQuery: true,
                 run: () => Config.addVpnExcludedDomain(q)
             })
         } else if (!q && domains.length === 0) {
@@ -130,6 +212,7 @@ QtObject {
         domains.forEach((d, i) => {
             const confirming = vpnConfirmDelete === d
             items.push({
+                id: "vpn-domain:" + d,
                 name: confirming ? I18n.tr("vpn.exclude.confirm").replace("%1", d) : d,
                 comment: confirming ? "" : I18n.tr("vpn.exclude.remove.hint"),
                 icon: "",
@@ -179,12 +262,28 @@ QtObject {
         }))
     }
 
+    // Опасные пункты подтверждаются вторым нажатием в течение 3с (confirmKey)
+    function confirmed(key, item) {
+        const confirming = confirmKey === key
+        return Object.assign({}, item, {
+            name: confirming ? I18n.tr("common.confirm").replace("%1", item.name) : item.name,
+            keepOpen: !confirming,
+            run: () => {
+                if (confirming) { confirmTimer.stop(); confirmKey = ""; item.run() }
+                else { confirmKey = key; confirmTimer.restart() }
+            }
+        })
+    }
+
     function power() {
         return [
-            { name: I18n.tr("power.off"), icon: "", danger: true, run: () => Quickshell.execDetached(["systemctl", "poweroff"]) },
-            { name: I18n.tr("power.reboot"), icon: "", danger: true, run: () => Quickshell.execDetached(["systemctl", "reboot"]) },
+            confirmed("off", { name: I18n.tr("power.off"), icon: "", danger: true, run: () => Quickshell.execDetached(["systemctl", "poweroff"]) }),
+            confirmed("reboot", { name: I18n.tr("power.reboot"), icon: "", danger: true, run: () => Quickshell.execDetached(["systemctl", "reboot"]) }),
+            confirmed("logout", { name: I18n.tr("power.logout"), comment: I18n.tr("power.logout.hint"), icon: "\uf08b", danger: true,
+                run: () => Quickshell.execDetached(["sh", "-c", "command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"]) }),
             { name: I18n.tr("power.suspend"), icon: "", run: () => Quickshell.execDetached(["systemctl", "suspend"]) },
-            { name: I18n.tr("power.lock"), icon: "", run: () => Quickshell.execDetached(["hyprlock"]) }
+            { name: I18n.tr("power.lock"), icon: "", run: () => Quickshell.execDetached(["hyprlock"]) },
+            { name: I18n.tr("power.reload"), comment: I18n.tr("power.reload.hint"), icon: "\uf021", run: () => Quickshell.reload(true) }
         ]
     }
 
@@ -208,6 +307,7 @@ QtObject {
             { name: I18n.tr("cfg.tray"), comment: I18n.tr("cfg.tray.hint"), icon: "\uf2d0", page: "cfg.tray" },
             { name: I18n.tr("cfg.night"), comment: I18n.tr("cfg.night.hint"), icon: "\uf186", page: "cfg.night" },
             { name: I18n.tr("cfg.shot"), comment: I18n.tr("cfg.shot.hint"), icon: "\uf030", page: "cfg.shot" },
+            { name: I18n.tr("cfg.clip"), comment: I18n.tr("cfg.clip.hint"), icon: "\uf0ea", page: "cfg.clip" },
             { name: I18n.tr("cfg.notif"), comment: I18n.tr("cfg.notif.hint"), icon: "\uf0f3", page: "cfg.notif" },
             { name: I18n.tr("cfg.media"), comment: I18n.tr("cfg.media.hint"), icon: "\uf001", page: "cfg.media" },
             { name: I18n.tr("cfg.clock"), comment: I18n.tr("cfg.clock.hint"), icon: "\uf017", page: "cfg.clock" },
@@ -377,6 +477,19 @@ QtObject {
             toggleItem(I18n.tr("cfg.shot.save"), I18n.tr("cfg.shot.save.hint"), "\uf0c7", () => c.save, v => c.save = v),
             toggleItem(I18n.tr("cfg.shot.copy"), I18n.tr("cfg.shot.copy.hint"), "\uf0ea", () => c.copy, v => c.copy = v),
             toggleItem(I18n.tr("cfg.shot.notify"), I18n.tr("cfg.shot.notify.hint"), "\uf0f3", () => c.notify, v => c.notify = v)
+        ]
+    }
+
+    function cfgClip() {
+        const c = Config.clipboard
+        return [
+            toggleItem(I18n.tr("cfg.clip.enabled"),
+                       Clipboard.available ? I18n.tr("cfg.clip.enabled.hint") : I18n.tr("cfg.clip.missing"),
+                       "\uf0ea", () => c.enabled, v => c.enabled = v),
+            numberItem(I18n.tr("cfg.clip.max"), I18n.tr("cfg.clip.max.hint"), "\uf0ca",
+                       () => c.maxItems, v => c.maxItems = v, 10, 500, 10),
+            confirmed("clipwipe", { name: I18n.tr("cfg.clip.wipe"), comment: I18n.tr("cfg.clip.wipe.hint"), icon: "\uf1f8",
+                                    danger: true, run: () => Clipboard.wipe() })
         ]
     }
 

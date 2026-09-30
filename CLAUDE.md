@@ -57,7 +57,7 @@ Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed the
 - **Every configurable option must be reachable and editable in Menu → Configuration → <section>**, and persisted in `Config` (`config/Config.qml`). No settings hardcoded as constants in widgets, no separate config files or ad-hoc IPC-only toggles.
 - Adding an option = field in `Config.qml` + item in `MenuPages.qml` (`cfg*` pages; `toggleItem` / `numberItem` helpers, or a page for choices) + `cfg.*` keys in both languages + the widget reading `Config.<section>`.
 - Widgets must react to `Config` changes live (bind to it, don't copy values once).
-- Theme and language are separate top-level menu entries.
+- Theme is a separate top-level menu entry; language lives in Configuration.
 
 ### Notification shapes (extensibility)
 - The popup's shape is a **frame**: `components/notifications/frames/<Name>Frame.qml`, selected by the theme token `notifFrame` (`"panel"` → `PanelFrame.qml`). Contract is documented in `PanelFrame.qml` (fills the card, exposes `inset*` for content, `critical`). To add a new silhouette (e.g. a cat face), add a frame file and set `notifFrame` in a theme — don't special-case shapes in `NotificationCard`.

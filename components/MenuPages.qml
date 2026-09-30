@@ -55,6 +55,10 @@ QtObject {
         case "cfg.apps": return apps(e => Config.togglePinnedApp(e.id), 0, e => Config.apps.pinned.includes(e.id))
         case "cfg.sys": return cfgSys()
         case "cfg.osd": return cfgOsd()
+        case "cfg.bar": return cfgBar()
+        case "cfg.bar.mon": return cfgBarMonitors()
+        case "cfg.bar.mon.one": return cfgBarMonitor(arg)
+        case "cfg.tray": return cfgTray()
         case "cfg.claude": return cfgClaude()
         case "cfg.claude.metric": return cfgClaudeMetric(arg)
         case "cfg.sys.metric": return cfgSysMetric(arg)
@@ -197,7 +201,9 @@ QtObject {
     function config() {
         return [
             { name: I18n.tr("menu.lang"), comment: I18n.tr("menu.lang.hint"), icon: "", page: "lang" },
+            { name: I18n.tr("cfg.bar"), comment: I18n.tr("cfg.bar.hint"), icon: "\uf0c9", page: "cfg.bar" },
             { name: I18n.tr("cfg.ws"), comment: I18n.tr("cfg.ws.hint"), icon: "", page: "cfg.ws" },
+            { name: I18n.tr("cfg.tray"), comment: I18n.tr("cfg.tray.hint"), icon: "\uf2d0", page: "cfg.tray" },
             { name: I18n.tr("cfg.notif"), comment: I18n.tr("cfg.notif.hint"), icon: "\uf0f3", page: "cfg.notif" },
             { name: I18n.tr("cfg.media"), comment: I18n.tr("cfg.media.hint"), icon: "\uf001", page: "cfg.media" },
             { name: I18n.tr("cfg.clock"), comment: I18n.tr("cfg.clock.hint"), icon: "\uf017", page: "cfg.clock" },
@@ -337,6 +343,12 @@ QtObject {
         ]
     }
 
+    function cfgTray() {
+        const c = Config.tray
+        return [toggleItem(I18n.tr("cfg.tray.collapsed"), I18n.tr("cfg.tray.collapsed.hint"), "\uf104",
+                           () => c.collapsed, v => c.collapsed = v)]
+    }
+
     readonly property var monitorModes: ["off", "always", "yellow", "red"]
 
     function cfgSys() {
@@ -376,6 +388,52 @@ QtObject {
             { name: I18n.tr("cfg.osd.test"), comment: I18n.tr("cfg.osd.test.hint"), icon: "\uf1d8", keepOpen: true,
               run: () => Osd.show("volume", 50) }
         ]
+    }
+
+    readonly property var barIcons: ({
+        workspaces: "\uf009", apps: "\uf00a", media: "\uf001", sysmon: "\uf080", claude: "\uf121",
+        tray: "\uf2d0", network: "\uf1eb", bluetooth: "\uf293", battery: "\uf240", power: "\uf0e7",
+        language: "\uf11c", mixer: "\uf028"
+    })
+
+    // Порядок и видимость виджетов бара. Enter — показать/скрыть, ←/→ — сдвинуть;
+    // строка-разделитель делит бар на левую и правую часть (виджеты за ней — справа).
+    function cfgBar() {
+        const order = Config.barOrder()
+        const split = order.indexOf("|")
+        const items = order.map((id, i) => {
+            const move = d => Config.moveBarWidget(id, d) ? d : 0
+            if (id === "|")
+                return { name: I18n.tr("cfg.bar.split"), comment: I18n.tr("cfg.bar.split.hint"), icon: "\uf0db",
+                         value: I18n.tr("cfg.bar.split.value"), adjust: move, keepOpen: true }
+            return { name: I18n.tr("bar.w." + id), comment: I18n.tr("cfg.bar.item.hint"), icon: barIcons[id],
+                     active: !Config.bar.hidden.includes(id),
+                     value: I18n.tr(i < split ? "cfg.bar.left" : "cfg.bar.right"),
+                     adjust: move, keepOpen: true, run: () => Config.toggleBarWidget(id) }
+        })
+        items.push({ name: I18n.tr("cfg.bar.mon"), comment: I18n.tr("cfg.bar.mon.hint"), icon: "\uf108", page: "cfg.bar.mon" })
+        return items
+    }
+
+    function cfgBarMonitors() {
+        return Quickshell.screens.map(s => ({
+            name: s.name,
+            comment: s.width + "×" + s.height,
+            icon: "\uf108",
+            value: I18n.tr(Config.barEnabledOn(s.name) ? "common.on" : "common.off"),
+            page: "cfg.bar.mon.one:" + s.name
+        }))
+    }
+
+    function cfgBarMonitor(name) {
+        const items = [toggleItem(I18n.tr("cfg.bar.mon.enabled"), I18n.tr("cfg.bar.mon.enabled.hint"), "\uf108",
+                                  () => Config.barEnabledOn(name), v => Config.setMonitorCfg(name, { enabled: v }))]
+        for (const id of Config.barWidgetIds) {
+            items.push(toggleItem(I18n.tr("bar.w." + id), I18n.tr("cfg.bar.mon.widget.hint"), barIcons[id],
+                                  () => !(Config.monitorCfg(name).hidden ?? []).includes(id),
+                                  v => Config.toggleMonitorWidget(name, id)))
+        }
+        return items
     }
 
     function cfgClaude() {

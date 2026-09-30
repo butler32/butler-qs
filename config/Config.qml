@@ -18,6 +18,8 @@ Singleton {
     readonly property var network: adapter.network
     readonly property var osd: adapter.osd
     readonly property var claudeUsage: adapter.claudeUsage
+    readonly property var bar: adapter.bar
+    readonly property var tray: adapter.tray
 
     FileView {
         id: file
@@ -85,6 +87,19 @@ Singleton {
                 property MetricConfig session: MetricConfig { mode: "always"; yellow: 70; red: 90 }
                 property MetricConfig week: MetricConfig { mode: "always"; yellow: 70; red: 90 }
             }
+            property JsonObject bar: JsonObject {
+                // Порядок виджетов; "|" — разделитель: всё до него слева, после — справа
+                property var order: ["workspaces", "apps", "media", "|", "sysmon", "claude", "tray",
+                                     "network", "bluetooth", "battery", "power", "language", "mixer"]
+                // id виджетов, скрытых на всех мониторах
+                property var hidden: []
+                // имя монитора → { enabled: bool, hidden: [id виджетов] }; нет записи = бар как обычно
+                property var monitors: ({})
+            }
+            property JsonObject tray: JsonObject {
+                // true: значки трея прячутся за стрелкой и раскрываются по клику
+                property bool collapsed: false
+            }
             property JsonObject network: JsonObject {
                 // { name, network (имя NM-подключения), mode: "dhcp"|"static", ip, mask, gateway, dns }
                 property var profiles: []
@@ -112,6 +127,70 @@ Singleton {
         if (i >= 0) list.splice(i, 1)
         else list.push(id)
         apps.pinned = list
+    }
+
+    // ---------- раскладка бара ----------
+
+    readonly property var barWidgetIds: ["workspaces", "apps", "media", "sysmon", "claude", "tray",
+                                         "network", "bluetooth", "battery", "power", "language", "mixer"]
+
+    // Порядок из конфига, приведённый к корректному виду: неизвестные id и дубли
+    // выброшены, разделитель "|" ровно один, новые виджеты дописаны в правую часть.
+    function barOrder() {
+        const seen = new Set()
+        const out = []
+        for (const id of bar.order) {
+            if ((id === "|" || barWidgetIds.includes(id)) && !seen.has(id)) { seen.add(id); out.push(id) }
+        }
+        if (!seen.has("|")) out.push("|")
+        for (const id of barWidgetIds) if (!seen.has(id)) out.push(id)
+        return out
+    }
+
+    function monitorCfg(name) { return bar.monitors[name] ?? {} }
+    function barEnabledOn(name) { return monitorCfg(name).enabled !== false }
+    function barHiddenOn(id, name) {
+        return bar.hidden.includes(id) || (monitorCfg(name).hidden ?? []).includes(id)
+    }
+
+    // side: "left" | "right"; монитор учитывается, чтобы скрыть лишнее на второстепенных экранах
+    function barWidgets(side, screenName) {
+        const order = barOrder()
+        const split = order.indexOf("|")
+        const part = side === "left" ? order.slice(0, split) : order.slice(split + 1)
+        return part.filter(id => !barHiddenOn(id, screenName))
+    }
+
+    // d = -1: раньше в списке, +1: позже; возвращает true, если порядок изменился
+    function moveBarWidget(id, d) {
+        const order = barOrder()
+        const i = order.indexOf(id), j = i + d
+        if (i < 0 || j < 0 || j >= order.length) return false
+        order.splice(i, 1)
+        order.splice(j, 0, id)
+        bar.order = order
+        return true
+    }
+
+    function toggleBarWidget(id) {
+        const list = [...bar.hidden]
+        const i = list.indexOf(id)
+        if (i >= 0) list.splice(i, 1)
+        else list.push(id)
+        bar.hidden = list
+    }
+
+    function setMonitorCfg(name, patch) {
+        const m = Object.assign({}, bar.monitors)
+        m[name] = Object.assign({}, m[name], patch)
+        bar.monitors = m
+    }
+    function toggleMonitorWidget(name, id) {
+        const list = [...(monitorCfg(name).hidden ?? [])]
+        const i = list.indexOf(id)
+        if (i >= 0) list.splice(i, 1)
+        else list.push(id)
+        setMonitorCfg(name, { hidden: list })
     }
 
     // index = -1 — новый профиль

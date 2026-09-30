@@ -14,7 +14,7 @@ Panel {
     readonly property var devices: adapter?.devices?.values ?? []
     readonly property int connectedCount: devices.filter(d => d.connected).length
 
-    visible: adapter !== null
+    wanted: adapter !== null
     implicitWidth: Theme.barHeight
 
     Label {

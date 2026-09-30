@@ -40,7 +40,7 @@ Panel {
         }
     }
 
-    visible: defs.some(d => shown(d.id))
+    wanted: defs.some(d => shown(d.id))
 
     Repeater {
         model: root.defs

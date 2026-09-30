@@ -17,7 +17,7 @@ Panel {
     readonly property bool full: dev.state === UPowerDeviceState.FullyCharged
     readonly property color tint: charging || full ? Theme.accent : pct <= 15 ? Theme.danger : pct <= 30 ? Theme.warn : Theme.text
 
-    visible: present
+    wanted: present
 
     function glyph() { return pct > 87 ? "" : pct > 62 ? "" : pct > 37 ? "" : pct > 12 ? "" : "" }
     function hm(sec) {
@@ -91,28 +91,6 @@ Panel {
             font.pixelSize: Theme.fontSize - 1
         }
 
-        Label { text: I18n.tr("bat.profile"); color: Theme.accent; font.pixelSize: Theme.fontSize - 2 }
-        RowLayout {
-            Layout.fillWidth: true
-            Chip {
-                Layout.fillWidth: true
-                icon: ""; text: I18n.tr("bat.saver")
-                accent: PowerProfiles.profile === PowerProfile.PowerSaver
-                onClicked: PowerProfiles.profile = PowerProfile.PowerSaver
-            }
-            Chip {
-                Layout.fillWidth: true
-                icon: ""; text: I18n.tr("bat.balanced")
-                accent: PowerProfiles.profile === PowerProfile.Balanced
-                onClicked: PowerProfiles.profile = PowerProfile.Balanced
-            }
-            Chip {
-                Layout.fillWidth: true
-                visible: PowerProfiles.hasPerformanceProfile
-                icon: ""; text: I18n.tr("bat.performance")
-                accent: PowerProfiles.profile === PowerProfile.Performance
-                onClicked: PowerProfiles.profile = PowerProfile.Performance
-            }
-        }
+        PowerProfileChooser { Layout.fillWidth: true }
     }
 }

@@ -81,10 +81,12 @@ PanelWindow {
         else win.close()
     }
     // Смена настроек пересобирает модель и сбрасывает выбор — возвращаем его на место
+    // fn может вернуть число — на сколько строк сдвинулся выбранный пункт (сдвиг порядка)
     function keepSelection(fn) {
         const i = list.currentIndex
-        fn()
-        Qt.callLater(() => list.currentIndex = Math.max(0, Math.min(i, list.count - 1)))
+        const shift = fn()
+        const target = i + (typeof shift === "number" ? shift : 0)
+        Qt.callLater(() => list.currentIndex = Math.max(0, Math.min(target, list.count - 1)))
     }
     function activate(it) {
         if (!it) return

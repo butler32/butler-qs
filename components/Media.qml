@@ -19,7 +19,7 @@ Panel {
         return list.find(p => p.isPlaying) ?? list[0] ?? null
     }
 
-    visible: Config.media.enabled && player !== null
+    wanted: Config.media.enabled && player !== null
     spacing: Theme.gap + 2
 
     // Переход к источнику звука. Для браузеров окон может быть несколько —

@@ -1,4 +1,5 @@
 //@ pragma ShellId butler
+//@ pragma UseQApplication
 import Quickshell
 import Quickshell.Io
 import "components"

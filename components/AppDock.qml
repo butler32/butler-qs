@@ -10,7 +10,7 @@ import "../services"
 // Клик: запустить, а если окно уже есть — перейти к нему.
 Panel {
     id: root
-    visible: Config.apps.pinned.length > 0
+    wanted: Config.apps.pinned.length > 0
 
     Repeater {
         model: Config.apps.pinned

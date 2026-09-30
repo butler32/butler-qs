@@ -32,13 +32,20 @@ To check visuals: `grim -g "X,Y WxH" file.png` and read the image.
 - `theme/` — `Theme` singleton (all style tokens) + `ThemeDef` (one theme's values). Themes are `ThemeDef` blocks inside `Theme.qml`.
 - `i18n/` — `I18n` singleton with the `ru` / `en` dictionaries. Language is persisted via `Quickshell.statePath("lang")`.
 - `config/` — `Config` singleton: persisted bar settings (JSON in the shell state dir). Edited only through the menu.
-- `services/` — `Notifs`: the notification daemon (`NotificationServer`) + on-screen queue (`shown` / `waiting`) + workspace notification marks. State only; drawing is in `components/notifications/`.
+- `services/` — `Calc` (calculator/unit converter for the menu search), `Clipboard` (cliphist history; the shell itself runs the `wl-paste --watch` pair), `NightLight` (hyprsunset process), `Screenshot` (+ `scripts/screenshot.sh`), `Windows`, `Notifs`: the notification daemon (`NotificationServer`) + on-screen queue (`shown` / `waiting`) + workspace notification marks + DND (`Config.notifications.dnd`, critical still shown) and `history` of plain snapshots. State only; drawing is in `components/notifications/`.
 - `components/` also holds the bar widgets: `Workspaces`, `AppDock` (pinned app icons), `Media` (MPRIS), `Clock` (+`CalendarPopup`), `SysMon` (data: `services/SysStats` + `scripts/sysstat.sh`), `Network` (+`WifiRow`, `NetworkProfiles`, `NetworkProfileEditor`, `VpnSection`; nmcli logic in `services/NetInfo` for everything except VPN — the VPN button drives `butler-vpn.service`, a systemd unit installed separately (see `scripts/vpn/`) that runs OpenVPN plus an IPv6/LAN-scoped kill switch adapted from amnezia-client's Linux firewall; toggled via passwordless `sudo systemctl start/stop butler-vpn.service`, scoped by `scripts/vpn/sudoers-butler-vpn`; domains in `Config.network.vpnExcludedDomains`, edited in `VpnSection`, are resolved once at connect time and routed around the tunnel via a `/32` bypass route + kill-switch pinhole per IP), `Bluetooth` (+`BtDeviceRow`), `Battery`, `Language`, `Mixer` (icon + popup; `VolumeRow`, `DevicePicker`). Reusable UI blocks: `BarPopup`, `Chip`, `Field`, `Slider`.
 - OSD: `services/Osd` (state; volume/mic follow PipeWire by themselves, brightness/Caps Lock arrive via `qs -c butler ipc call osd event <brightness|capslock> <value>` from `~/.config/hypr-theme/bin/osd-*`) + `components/OsdPopup`. Don't name an IPC function `show` — it collides with the `qs ipc show` subcommand.
 - `components/notifications/` — popup window, `NotificationCard`, and `frames/<Name>Frame.qml` (window shapes).
 - `components/` — `Panel` (base "window" of the bar), `Label`, `Bar`, widgets (`Workspaces`, `Clock`, `Language`, `Mixer`), `Menu` (window + navigation), `MenuPages` (menu content).
 
 Directories with a `qmldir` (`theme/`, `i18n/`) only expose the types listed there — register new types/singletons in it.
+
+## Bar layout
+
+- `Bar.qml` builds the widgets from `Config.bar.order` (ids + one `"|"` separator: left of it = left side) through `Loader` slots, so order/visibility/per-monitor hiding are config-driven (Menu → Configuration → Bar widgets). A new bar widget = `Panel` + a `Component` and id in `Bar.qml`'s `widgets` map + id in `Config.barWidgetIds` + `bar.w.<id>` key + icon in `MenuPages.barIcons`.
+- Widgets hide themselves with `Panel.wanted` (never `visible:` on the root): the slot reads `wanted` so a hidden widget takes no space.
+- `ClockGroup` = clock + tool buttons (DND / night light / screenshot) that appear on hover. Hover is tracked via the buttons' `MouseArea.containsMouse` and the group reserves width on both sides, because Qt Quick doesn't deliver hover to children outside the parent's bounds.
+- Optional backends are detected once at startup (`command -v ...`): hyprsunset (night light), cliphist + wl-clipboard (clipboard), powerprofilesctl (power profile widget). Missing = the feature hides itself.
 
 ## Rules
 

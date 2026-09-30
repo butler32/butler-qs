@@ -20,6 +20,8 @@ Singleton {
     readonly property var claudeUsage: adapter.claudeUsage
     readonly property var bar: adapter.bar
     readonly property var tray: adapter.tray
+    readonly property var night: adapter.night
+    readonly property var screenshot: adapter.screenshot
 
     FileView {
         id: file
@@ -50,6 +52,11 @@ Singleton {
                 property int fadeMs: 400
                 // true: пока курсор над любым уведомлением, таймеры всех остановлены
                 property bool pauseAllOnHover: false
+                // Не беспокоить: уведомления не показываются (critical — всё равно показываются),
+                // но попадают в историю
+                property bool dnd: false
+                // Сколько последних уведомлений хранить в истории
+                property int historyMax: 50
             }
             property JsonObject media: JsonObject {
                 property bool enabled: true
@@ -62,6 +69,10 @@ Singleton {
                 property bool showDate: true
                 property bool weekStartsMonday: true
                 property bool showSeconds: false
+                // Кнопки, появляющиеся рядом с часами при наведении
+                property bool toolDnd: true
+                property bool toolNight: true
+                property bool toolScreenshot: true
             }
             property JsonObject apps: JsonObject {
                 // id .desktop-файлов приложений в виджете иконок; по умолчанию пусто
@@ -99,6 +110,16 @@ Singleton {
             property JsonObject tray: JsonObject {
                 // true: значки трея прячутся за стрелкой и раскрываются по клику
                 property bool collapsed: false
+            }
+            property JsonObject night: JsonObject {
+                // Ночной режим (hyprsunset): тёплая цветовая температура экрана
+                property bool enabled: false
+                property int temperature: 4000
+            }
+            property JsonObject screenshot: JsonObject {
+                property bool save: true
+                property bool copy: true
+                property bool notify: true
             }
             property JsonObject network: JsonObject {
                 // { name, network (имя NM-подключения), mode: "dhcp"|"static", ip, mask, gateway, dns }

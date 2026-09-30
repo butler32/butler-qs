@@ -52,7 +52,7 @@ PanelWindow {
             }
         }
 
-        Clock { anchors.centerIn: parent }
+        ClockGroup { anchors.centerIn: parent }
 
         RowLayout {
             anchors.right: parent.right

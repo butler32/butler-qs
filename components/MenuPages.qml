@@ -59,6 +59,8 @@ QtObject {
         case "cfg.bar.mon": return cfgBarMonitors()
         case "cfg.bar.mon.one": return cfgBarMonitor(arg)
         case "cfg.tray": return cfgTray()
+        case "cfg.night": return cfgNight()
+        case "cfg.shot": return cfgShot()
         case "cfg.claude": return cfgClaude()
         case "cfg.claude.metric": return cfgClaudeMetric(arg)
         case "cfg.sys.metric": return cfgSysMetric(arg)
@@ -204,6 +206,8 @@ QtObject {
             { name: I18n.tr("cfg.bar"), comment: I18n.tr("cfg.bar.hint"), icon: "\uf0c9", page: "cfg.bar" },
             { name: I18n.tr("cfg.ws"), comment: I18n.tr("cfg.ws.hint"), icon: "", page: "cfg.ws" },
             { name: I18n.tr("cfg.tray"), comment: I18n.tr("cfg.tray.hint"), icon: "\uf2d0", page: "cfg.tray" },
+            { name: I18n.tr("cfg.night"), comment: I18n.tr("cfg.night.hint"), icon: "\uf186", page: "cfg.night" },
+            { name: I18n.tr("cfg.shot"), comment: I18n.tr("cfg.shot.hint"), icon: "\uf030", page: "cfg.shot" },
             { name: I18n.tr("cfg.notif"), comment: I18n.tr("cfg.notif.hint"), icon: "\uf0f3", page: "cfg.notif" },
             { name: I18n.tr("cfg.media"), comment: I18n.tr("cfg.media.hint"), icon: "\uf001", page: "cfg.media" },
             { name: I18n.tr("cfg.clock"), comment: I18n.tr("cfg.clock.hint"), icon: "\uf017", page: "cfg.clock" },
@@ -303,6 +307,10 @@ QtObject {
                        v => v + " " + I18n.tr("unit.ms")),
             toggleItem(I18n.tr("cfg.notif.pauseall"), I18n.tr("cfg.notif.pauseall.hint"), "\uf04c",
                        () => c.pauseAllOnHover, v => c.pauseAllOnHover = v),
+            toggleItem(I18n.tr("cfg.notif.dnd"), I18n.tr("cfg.notif.dnd.hint"), "\uf1f6",
+                       () => c.dnd, v => c.dnd = v),
+            numberItem(I18n.tr("cfg.notif.history"), I18n.tr("cfg.notif.history.hint"), "\uf1da",
+                       () => c.historyMax, v => c.historyMax = v, 10, 200, 10),
             { name: I18n.tr("cfg.notif.test"), comment: I18n.tr("cfg.notif.test.hint"), icon: "\uf1d8", keepOpen: true,
               run: () => Quickshell.execDetached(["notify-send", "-a", "Quickshell", I18n.tr("cfg.notif.test.title"), I18n.tr("cfg.notif.test.body")]) }
         ]
@@ -339,7 +347,10 @@ QtObject {
             toggleItem(I18n.tr("cfg.clock.date"), "", "\uf073", () => c.showDate, v => c.showDate = v),
             toggleItem(I18n.tr("cfg.clock.monday"), I18n.tr("cfg.clock.monday.hint"), "\uf133",
                        () => c.weekStartsMonday, v => c.weekStartsMonday = v),
-            toggleItem(I18n.tr("cfg.clock.seconds"), "", "\uf017", () => c.showSeconds, v => c.showSeconds = v)
+            toggleItem(I18n.tr("cfg.clock.seconds"), "", "\uf017", () => c.showSeconds, v => c.showSeconds = v),
+            toggleItem(I18n.tr("cfg.clock.tooldnd"), I18n.tr("cfg.clock.tool.hint"), "\uf0f3", () => c.toolDnd, v => c.toolDnd = v),
+            toggleItem(I18n.tr("cfg.clock.toolnight"), I18n.tr("cfg.clock.tool.hint"), "\uf186", () => c.toolNight, v => c.toolNight = v),
+            toggleItem(I18n.tr("cfg.clock.toolshot"), I18n.tr("cfg.clock.tool.hint"), "\uf030", () => c.toolScreenshot, v => c.toolScreenshot = v)
         ]
     }
 
@@ -347,6 +358,26 @@ QtObject {
         const c = Config.tray
         return [toggleItem(I18n.tr("cfg.tray.collapsed"), I18n.tr("cfg.tray.collapsed.hint"), "\uf104",
                            () => c.collapsed, v => c.collapsed = v)]
+    }
+
+    function cfgNight() {
+        const c = Config.night
+        return [
+            toggleItem(I18n.tr("cfg.night.enabled"),
+                       NightLight.available ? I18n.tr("cfg.night.enabled.hint") : I18n.tr("cfg.night.missing"),
+                       "\uf186", () => c.enabled, v => c.enabled = v),
+            numberItem(I18n.tr("cfg.night.temp"), I18n.tr("cfg.night.temp.hint"), "\uf2c9",
+                       () => c.temperature, v => c.temperature = v, 1500, 6500, 250, v => v + " K")
+        ]
+    }
+
+    function cfgShot() {
+        const c = Config.screenshot
+        return [
+            toggleItem(I18n.tr("cfg.shot.save"), I18n.tr("cfg.shot.save.hint"), "\uf0c7", () => c.save, v => c.save = v),
+            toggleItem(I18n.tr("cfg.shot.copy"), I18n.tr("cfg.shot.copy.hint"), "\uf0ea", () => c.copy, v => c.copy = v),
+            toggleItem(I18n.tr("cfg.shot.notify"), I18n.tr("cfg.shot.notify.hint"), "\uf0f3", () => c.notify, v => c.notify = v)
+        ]
     }
 
     readonly property var monitorModes: ["off", "always", "yellow", "red"]

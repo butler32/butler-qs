@@ -18,17 +18,37 @@ Singleton {
     property var waiting: []
     property var pending: ({})   // id воркспейса → true
     property int hoverCount: 0   // сколько уведомлений сейчас под курсором
+    // История: снимки (обычные JS-объекты, не Notification) от новых к старым, размер —
+    // Config.notifications.historyMax. `missed` — сколько пришло «молча» из-за DND
+    // с тех пор, как историю в последний раз смотрели.
+    property var history: []
+    property int missed: 0
 
     NotificationServer {
         keepOnReload: true
         actionsSupported: true
         bodyMarkupSupported: true
         onNotification: n => {
+            const silent = Config.notifications.dnd && n.urgency !== NotificationUrgency.Critical
+            root.record(n, silent)
+            root.markWorkspace(n.appName, n.desktopEntry)
+            if (silent) { root.missed++; return }
             n.tracked = true
             root.enqueue(n)
-            root.markWorkspace(n.appName, n.desktopEntry)
         }
     }
+
+    function record(n, silent) {
+        const snap = {
+            appName: n.appName, desktopEntry: n.desktopEntry, appIcon: n.appIcon,
+            summary: n.summary, body: n.body, critical: n.urgency === NotificationUrgency.Critical,
+            silent: silent, time: Date.now()
+        }
+        history = [snap, ...history].slice(0, Config.notifications.historyMax)
+    }
+    function clearHistory() { history = []; missed = 0 }
+    function removeFromHistory(i) { history = history.filter((_, j) => j !== i) }
+    function toggleDnd() { Config.notifications.dnd = !Config.notifications.dnd }
 
     function enqueue(n) {
         n.closed.connect(() => root.forget(n))
@@ -50,6 +70,7 @@ Singleton {
     Connections {
         target: Config.notifications
         function onMaxVisibleChanged() { root.promote() }
+        function onHistoryMaxChanged() { root.history = root.history.slice(0, Config.notifications.historyMax) }
     }
 
     // ---------- метки воркспейсов ----------

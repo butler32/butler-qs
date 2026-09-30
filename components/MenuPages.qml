@@ -37,6 +37,7 @@ QtObject {
         const base = id.split(":")[0]
         if (base === "clip") Clipboard.refresh()
         else if (base === "windows") Hyprland.refreshToplevels()
+        else if (base === "vpn.config") NetInfo.refreshVpnConfigs()
     }
 
     function title(id) {
@@ -66,6 +67,7 @@ QtObject {
         case "lang": return langs()
         case "config": return config()
         case "vpn": return vpnPage(query)
+        case "vpn.config": return vpnConfigPage(query)
         case "cfg.ws": return cfgWorkspaces()
         case "cfg.notif": return cfgNotifications()
         case "cfg.media": return cfgMedia()
@@ -103,6 +105,40 @@ QtObject {
             vpnRootEntry(),
             { name: I18n.tr("menu.power"), comment: I18n.tr("menu.power.hint"), icon: "", danger: true, page: "power" }
         ]
+    }
+
+    function baseName(path) { return path.slice(path.lastIndexOf("/") + 1) }
+    function shortPath(path) {
+        const home = Quickshell.env("HOME")
+        return path.startsWith(home + "/") ? "~" + path.slice(home.length) : path
+    }
+    function vpnConfigPath() { return Config.network.vpnConfig || NetInfo.vpnDefaultConfig }
+
+    // Выбор .ovpn для butler-vpn.service: найденные файлы + путь, набранный в поиске
+    // (~/… или /…, заканчивается на .ovpn). Новый файл применяется при следующем подключении.
+    function vpnConfigPage(query) {
+        const cur = vpnConfigPath()
+        const pick = path => ({
+            id: "vpn-config:" + path,
+            name: baseName(path),
+            comment: shortPath(path),
+            icon: "\uf15b",
+            active: cur === path,
+            keepOpen: true,
+            backAfter: 1,
+            run: () => Config.network.vpnConfig = path
+        })
+        const home = Quickshell.env("HOME")
+        const items = []
+        const q = (query ?? "").trim()
+        if (/^(~|\/).*\.ovpn$/i.test(q)) {
+            const typed = q.startsWith("~") ? home + q.slice(1) : q
+            items.push(Object.assign(pick(typed), { name: I18n.tr("vpn.config.use").replace("%1", shortPath(typed)), comment: "", sticky: true }))
+        }
+        const found = NetInfo.vpnConfigs.includes(cur) ? NetInfo.vpnConfigs : [cur, ...NetInfo.vpnConfigs]
+        items.push(...found.map(pick))
+        if (found.length <= 1 && !q) items.push({ id: "vpn-config-hint", name: I18n.tr("vpn.config.hint2"), icon: "\uf059", keepOpen: true })
+        return items
     }
 
     // Калькулятор / конвертер: если набранное — выражение, первым пунктом идёт результат
@@ -195,7 +231,13 @@ QtObject {
             run: () => NetInfo.toggleVpn()
         }
         const domains = Config.network.vpnExcludedDomains
-        const items = [toggle]
+        const items = [toggle, {
+            name: I18n.tr("vpn.config"),
+            comment: I18n.tr("vpn.config.hint"),
+            icon: "\uf15b",
+            value: baseName(vpnConfigPath()),
+            page: "vpn.config"
+        }]
 
         const q = (query ?? "").trim().toLowerCase()
         if (q && /\.\w/.test(q) && !/\s/.test(q) && !domains.includes(q)) {

@@ -348,7 +348,12 @@ Singleton {
             "cfg.clock.tooldnd": "Кнопка «Не беспокоить»",
             "cfg.clock.toolnight": "Кнопка ночного режима",
             "cfg.clock.toolshot": "Кнопка скриншота",
-            "cfg.clock.tool.hint": "Появляется рядом с часами при наведении"
+            "cfg.clock.tool.hint": "Появляется рядом с часами при наведении",
+            "menu.title.vpn.config": "Файл конфигурации",
+            "vpn.config": "Файл конфигурации",
+            "vpn.config.hint": "Какой .ovpn использовать",
+            "vpn.config.use": "Использовать «%1»",
+            "vpn.config.hint2": "Введите путь к .ovpn (~/… или /…) в поиске"
         },
         en: {
             "menu.title.root": "Menu",
@@ -668,7 +673,12 @@ Singleton {
             "cfg.clock.tooldnd": "Do-not-disturb button",
             "cfg.clock.toolnight": "Night light button",
             "cfg.clock.toolshot": "Screenshot button",
-            "cfg.clock.tool.hint": "Appears next to the clock on hover"
+            "cfg.clock.tool.hint": "Appears next to the clock on hover",
+            "menu.title.vpn.config": "Config file",
+            "vpn.config": "Config file",
+            "vpn.config.hint": "Which .ovpn to use",
+            "vpn.config.use": "Use “%1”",
+            "vpn.config.hint2": "Type a path to an .ovpn (~/… or /…) in the search"
         }
     })
 }

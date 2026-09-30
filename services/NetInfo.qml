@@ -26,6 +26,17 @@ Singleton {
     property string vpnState: "disconnected"   // disconnected | connecting | connected | failed
     readonly property bool vpnConnected: vpnState === "connected"
     readonly property bool vpnBusy: vpnState === "connecting" || vpnRunner.running
+    // .ovpn, найденные в типичных местах; Config.network.vpnConfig пусто = vpnDefaultConfig
+    readonly property string vpnDefaultConfig: Quickshell.env("HOME") + "/vpn/germany/openvpn_full.ovpn"
+    property var vpnConfigs: []
+    function refreshVpnConfigs() { if (!vpnFind.running) vpnFind.running = true }
+    Process {
+        id: vpnFind
+        command: ["sh", "-c", "find \"$HOME/vpn\" \"$HOME/.config/openvpn\" \"$HOME/Downloads\" -maxdepth 4 -type f -name '*.ovpn' 2>/dev/null"]
+        stdout: StdioCollector {
+            onStreamFinished: root.vpnConfigs = text.split("\n").filter(l => l.endsWith(".ovpn")).sort()
+        }
+    }
     property string vpnStatus: ""
     property bool vpnStatusError: false
 

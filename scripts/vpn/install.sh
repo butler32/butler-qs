@@ -2,9 +2,9 @@
 # install.sh — installs butler-vpn.service (OpenVPN + IPv6/LAN-scoped kill
 # switch) system-wide. See butler-vpn-up.sh for what it actually does and why.
 #
-# Portable across machines: run with sudo from inside a checkout of this repo,
-# on any machine that has an OpenVPN config at ~/vpn/germany/openvpn_full.ovpn
-# for the invoking user. Auto-detects that user (via $SUDO_USER) and their home
+# Portable across machines: run with sudo from inside a checkout of this repo.
+# The OpenVPN config is picked in the bar's menu (Menu -> VPN -> Config file);
+# ~/vpn/germany/openvpn_full.ovpn is only the default when nothing is picked. Auto-detects that user (via $SUDO_USER) and their home
 # directory — nothing here is hardcoded to one username or one machine.
 #
 # Idempotent: safe to re-run any time (e.g. after `git pull`) to pick up script
@@ -93,11 +93,13 @@ echo "  $UNIT_PATH"
 echo "  $SUDOERS_PATH  (passwordless sudo for $TARGET_USER, scoped to systemctl start/stop butler-vpn.service)"
 echo
 
+# The config file is chosen in the bar's Menu -> VPN -> Config file; when nothing is
+# chosen yet this default is used.
 OVPN_CONFIG="$TARGET_HOME/vpn/germany/openvpn_full.ovpn"
 if [ -f "$OVPN_CONFIG" ]; then
-    echo "OpenVPN config found: $OVPN_CONFIG"
+    echo "OpenVPN config found (default): $OVPN_CONFIG"
 else
-    echo "WARNING: no OpenVPN config at $OVPN_CONFIG — butler-vpn.service will fail to start until it's there."
+    echo "NOTE: no OpenVPN config at the default $OVPN_CONFIG — pick one in Menu -> VPN -> Config file before connecting."
 fi
 
 echo

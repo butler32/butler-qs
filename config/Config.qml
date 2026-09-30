@@ -135,6 +135,9 @@ Singleton {
                 // напрямую из этого файла привилегированным butler-vpn-up.sh
                 // (см. scripts/vpn/), резолвится один раз при подключении
                 property var vpnExcludedDomains: []
+                // абсолютный путь к .ovpn для butler-vpn.service; пусто = ~/vpn/germany/openvpn_full.ovpn.
+                // Читается привилегированным butler-vpn-up.sh так же, как домены выше
+                property string vpnConfig: ""
             }
         }
     }

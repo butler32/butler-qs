@@ -57,7 +57,7 @@
 
 set -euo pipefail
 
-OVPN_CONFIG="__HOME__/vpn/germany/openvpn_full.ovpn"   # placeholder filled in by install.sh
+DEFAULT_OVPN="__HOME__/vpn/germany/openvpn_full.ovpn"   # placeholder filled in by install.sh
 CONFIG_JSON="__HOME__/.local/state/quickshell/by-shell/butler/config.json"
 OPENVPN_BIN="/usr/bin/openvpn"
 IPTABLES="/usr/bin/iptables"
@@ -83,6 +83,24 @@ die() {
 }
 
 [ "$(id -u)" -eq 0 ] || die "must run as root (via systemd)"
+
+# Which .ovpn to use: Menu -> VPN -> Config file stores it in network.vpnConfig of
+# the same state file the excluded domains come from; empty = the default above.
+# Note: openvpn runs whatever this file says (it can contain `up` scripts) as root,
+# so it is exactly as trusted as the user-owned file the path points to.
+OVPN_CONFIG="$DEFAULT_OVPN"
+if [ -f "$CONFIG_JSON" ] && [ -x "$PYTHON3" ]; then
+    CHOSEN=$("$PYTHON3" -c "
+import json
+try:
+    with open('$CONFIG_JSON') as f:
+        print(json.load(f).get('network', {}).get('vpnConfig', '').strip())
+except Exception:
+    pass
+" 2>/dev/null || true)
+    [ -n "$CHOSEN" ] && OVPN_CONFIG="$CHOSEN"
+fi
+[[ "$OVPN_CONFIG" == /* ]] || die "vpn config path must be absolute: $OVPN_CONFIG"
 [ -f "$OVPN_CONFIG" ] || die "config not found: $OVPN_CONFIG"
 [ -x "$OPENVPN_BIN" ] || die "openvpn binary not found: $OPENVPN_BIN"
 

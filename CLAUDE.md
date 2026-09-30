@@ -5,6 +5,8 @@ No build step or tests — it is declarative QML loaded by Quickshell.
 
 ## Running
 
+On a fresh Arch machine run `scripts/install-deps.sh` first (`--optional` for VPN / media keys / NVIDIA stats, `--enable-services` to enable NetworkManager, bluetooth, upower and power-profiles-daemon, `--dry-run` to preview). It installs the packages, links the repo to `~/.config/quickshell/butler` and does not touch anything else. Keep its package lists in sync when a feature starts using a new external tool.
+
 The repo is symlinked as `~/.config/quickshell/butler`, so run it by name from anywhere
 (`-p .` only works from this directory):
 

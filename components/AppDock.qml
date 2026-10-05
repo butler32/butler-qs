@@ -33,7 +33,7 @@ Panel {
                 anchors.centerIn: parent
                 width: 20; height: 20
                 sourceSize: Qt.size(48, 48)
-                source: cell.entry ? Quickshell.iconPath(cell.entry.icon, "application-x-executable") : ""
+                source: Quickshell.iconPath(cell.entry?.icon ?? "", "application-x-executable")
                 opacity: cell.running ? 1 : 0.7
             }
             // индикатор запущенного окна

@@ -29,6 +29,20 @@ ShellRoot {
         Menu { initialPage: shell.menuPage; onClose: menuLoader.active = false }
     }
 
+    LazyLoader {
+        active: ConfigEditor.open
+        ConfigEditorWindow { onClose: ConfigEditor.closeWindow() }
+    }
+
+    // qs -c butler ipc call configs open | close | toggle | section <id>
+    IpcHandler {
+        target: "configs"
+        function open(): void { ConfigEditor.openWindow() }
+        function close(): void { ConfigEditor.closeWindow() }
+        function section(id: string): void { ConfigEditor.select(id); ConfigEditor.openWindow() }
+        function toggle(): void { ConfigEditor.open ? ConfigEditor.closeWindow() : ConfigEditor.openWindow() }
+    }
+
     // qs -p . ipc call theme set sharp | cycle | get
     IpcHandler {
         target: "theme"

@@ -103,6 +103,7 @@ QtObject {
             ...(Clipboard.active ? [{ name: I18n.tr("menu.clip"), comment: I18n.tr("menu.clip.hint"), icon: "\uf0ea", page: "clip" }] : []),
             { name: I18n.tr("menu.shot"), comment: I18n.tr("menu.shot.hint"), icon: "\uf030", page: "shot" },
             { name: I18n.tr("menu.config"), comment: I18n.tr("menu.config.hint"), icon: "", page: "config" },
+            { name: I18n.tr("menu.configs"), comment: I18n.tr("menu.configs.hint"), icon: "", run: () => ConfigEditor.openWindow() },
             { name: I18n.tr("menu.themes"), comment: I18n.tr("menu.themes.hint"), icon: "", page: "themes" },
             vpnRootEntry(),
             { name: I18n.tr("menu.power"), comment: I18n.tr("menu.power.hint"), icon: "", danger: true, page: "power" }

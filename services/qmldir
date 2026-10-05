@@ -9,4 +9,7 @@ singleton NightLight 1.0 NightLight.qml
 singleton Screenshot 1.0 Screenshot.qml
 singleton Calc 1.0 Calc.qml
 singleton Clipboard 1.0 Clipboard.qml
+singleton ConfigEditor 1.0 ConfigEditor.qml
+singleton HyprInfo 1.0 HyprInfo.qml
+singleton ConfigDropdown 1.0 ConfigDropdown.qml
 singleton BtAdapters 1.0 BtAdapters.qml

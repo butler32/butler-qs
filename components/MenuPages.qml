@@ -75,7 +75,7 @@ QtObject {
         case "cfg.media": return cfgMedia()
         case "cfg.media.app": return cfgMediaApp()
         case "cfg.clock": return cfgClock()
-        case "cfg.apps": return apps(e => Config.togglePinnedApp(e.id), 0, e => Config.apps.pinned.includes(e.id))
+        case "cfg.apps": return missingPinnedApps().concat(apps(e => Config.togglePinnedApp(e.id), 0, e => Config.apps.pinned.includes(e.id)))
         case "cfg.sys": return cfgSys()
         case "cfg.osd": return cfgOsd()
         case "cfg.bar": return cfgBar()
@@ -295,6 +295,22 @@ QtObject {
                 run: () => onPick ? onPick(e) : e.execute(),
                 keepOpen: !!onPick,
                 backAfter: backAfter ?? 0
+            }))
+    }
+
+    // закреплённые приложения, которых нет на этом устройстве (например, после импорта настроек):
+    // без этих пунктов их нельзя снять — в списке apps() их нет
+    function missingPinnedApps() {
+        DesktopEntries.applications.values
+        return Config.apps.pinned
+            .filter(id => !(DesktopEntries.byId(id) ?? DesktopEntries.heuristicLookup(id)))
+            .map(id => ({
+                name: id,
+                comment: I18n.tr("cfg.apps.missing"),
+                icon: "\uf071",
+                active: true,
+                keepOpen: true,
+                run: () => Config.togglePinnedApp(id)
             }))
     }
 

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import "../services"
 import Quickshell.Services.Mpris
+import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import "../theme"
 import "../i18n"
@@ -70,6 +71,7 @@ QtObject {
         case "vpn.config": return vpnConfigPage(query)
         case "cfg.ws": return cfgWorkspaces()
         case "cfg.notif": return cfgNotifications()
+        case "cfg.bt": return cfgBluetooth()
         case "cfg.media": return cfgMedia()
         case "cfg.media.app": return cfgMediaApp()
         case "cfg.clock": return cfgClock()
@@ -353,6 +355,7 @@ QtObject {
             { name: I18n.tr("cfg.clip"), comment: I18n.tr("cfg.clip.hint"), icon: "\uf0ea", page: "cfg.clip" },
             { name: I18n.tr("cfg.backup"), comment: I18n.tr("cfg.backup.hint"), icon: "\uf0c7", page: "cfg.backup" },
             { name: I18n.tr("cfg.notif"), comment: I18n.tr("cfg.notif.hint"), icon: "\uf0f3", page: "cfg.notif" },
+            { name: I18n.tr("cfg.bt"), comment: I18n.tr("cfg.bt.hint"), icon: "\uf293", page: "cfg.bt" },
             { name: I18n.tr("cfg.media"), comment: I18n.tr("cfg.media.hint"), icon: "\uf001", page: "cfg.media" },
             { name: I18n.tr("cfg.clock"), comment: I18n.tr("cfg.clock.hint"), icon: "\uf017", page: "cfg.clock" },
             { name: I18n.tr("cfg.apps"), comment: I18n.tr("cfg.apps.hint"), icon: "\uf00a", page: "cfg.apps" },
@@ -483,6 +486,21 @@ QtObject {
         })
         return [pick(I18n.tr("media.any"), "", "\uf0ac"),
                 ...names.map(n => pick(n, n.toLowerCase(), "\uf001"))]
+    }
+
+    // Адаптеры BlueZ с MAC (+ текущий выбор, даже если адаптер отключён)
+    function cfgBluetooth() {
+        const c = Config.bluetooth
+        const list = Bluetooth.adapters.values.map(a => ({ mac: BtAdapters.macOf(a), alias: a.name, on: a.enabled }))
+        if (c.adapter && !list.some(x => x.mac === c.adapter)) list.push({ mac: c.adapter, alias: "", on: null })
+        const pick = (label, hint, value) => ({
+            name: label, comment: hint, icon: "\uf293", active: c.adapter === value,
+            keepOpen: true, run: () => c.adapter = value
+        })
+        return [pick(I18n.tr("cfg.bt.default"), I18n.tr("cfg.bt.default.hint"), ""),
+                ...list.map(x => pick(x.mac || x.alias,
+                    (x.alias ? x.alias + " · " : "") + (x.on === null ? I18n.tr("cfg.bt.missing") : x.on ? I18n.tr("common.on") : I18n.tr("common.off")),
+                    x.mac))]
     }
 
     function cfgClock() {

@@ -3,14 +3,17 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Bluetooth
 import "../theme"
+import "../config"
 import "../i18n"
+import "../services"
 
 // Значок Bluetooth; клик — окно со списком устройств, поиском и подключением.
 // Сопряжение идёт без своего agent'а: работает для устройств «Just Works» (наушники,
 // геймпады, мыши); для PIN-устройств используйте bluetoothctl.
 Panel {
     id: root
-    readonly property var adapter: Bluetooth.defaultAdapter
+    // выбранный в Configuration → Bluetooth адаптер (по MAC); если его нет (отключён) — по умолчанию
+    readonly property var adapter: BtAdapters.find(Config.bluetooth.adapter) ?? Bluetooth.defaultAdapter
     readonly property var devices: adapter?.devices?.values ?? []
     readonly property int connectedCount: devices.filter(d => d.connected).length
 

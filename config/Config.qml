@@ -17,6 +17,7 @@ Singleton {
     readonly property var apps: adapter.apps
     readonly property var sysmon: adapter.sysmon
     readonly property var network: adapter.network
+    readonly property var bluetooth: adapter.bluetooth
     readonly property var osd: adapter.osd
     readonly property var claudeUsage: adapter.claudeUsage
     readonly property var bar: adapter.bar
@@ -127,6 +128,10 @@ Singleton {
                 // История буфера обмена (cliphist + wl-paste)
                 property bool enabled: true
                 property int maxItems: 50
+            }
+            property JsonObject bluetooth: JsonObject {
+                // MAC адаптера BlueZ; пусто = адаптер по умолчанию
+                property string adapter: ""
             }
             property JsonObject network: JsonObject {
                 // { name, network (имя NM-подключения), mode: "dhcp"|"static", ip, mask, gateway, dns }

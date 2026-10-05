@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import "LuaConf.js" as Lua
 import "ConfigKinds.js" as Kinds
+import "ConfigSplit.js" as Split
 import "ConfigOptions.js" as Opts
 import "ConfigCatalog.js" as Cat
 import "../i18n"
@@ -148,6 +149,65 @@ Singleton {
         textReplaced(path)
     }
 
+    // Файл «по роли» (configs/monitors.lua …) может не существовать — например, когда весь конфиг лежит
+    // в одном hyprland.lua. Тогда новые записи кладутся рядом с такими же уже имеющимися, а если таких
+    // нет — файл создаётся и подключается через require в главном файле.
+    function ensureFile(path) {
+        if (docs[path]) return true
+        const main = current().files[0].path
+        if (!docs[main] || path === main) return false
+        const mod = path.replace(/\.lua$/, "").replace(/\//g, ".")
+        if (!commit(main, Lua.appendStmt(texts[main], 'require("' + mod + '")'))) return false
+        texts[path] = ""
+        docs[path] = Lua.parse("")
+        rev++
+        return true
+    }
+    function placeFile(preferred, fn) {
+        if (docs[preferred]) return preferred
+        let found = null
+        for (const f of current().files) {
+            const d = docs[f.path]
+            if (!d || f.generated || f.plain) continue
+            for (const st of d.stmts) if (Lua.callName(st) === fn) found = f.path
+        }
+        if (found) return found
+        return ensureFile(preferred) ? preferred : current().files[0].path
+    }
+
+    // Разбиение главного файла по смыслу (ConfigSplit.js). Кэш — поля обычного объекта (см. _cache).
+    readonly property var _split: ({ rev: -1, plan: null })
+    function splitPlan() {
+        void rev
+        if (_split.rev === rev) return _split.plan
+        const main = current().files[0].path
+        let plan = null
+        if (docs[main] && !current().files[0].plain) {
+            plan = Split.plan(texts[main], current().files.filter(f => docs[f.path] && f.path !== main).map(f => f.path))
+            if (plan && !plan.moved) plan = null
+        }
+        _split.plan = plan
+        _split.rev = rev
+        return plan
+    }
+    readonly property bool splittable: splitPlan() !== null
+
+    function splitIntoFiles() {
+        const plan = splitPlan()
+        if (!plan) return false
+        const main = current().files[0].path
+        let ok = true
+        for (const f of plan.files) {
+            if (docs[f.path]) ok = commit(f.path, Lua.appendStmt(texts[f.path], f.text.replace(/\s+$/, ""))) && ok
+            else { texts[f.path] = f.text; docs[f.path] = Lua.parse(f.text) }
+        }
+        rev++
+        if (ok) ok = commit(main, plan.main)
+        if (!ok) { revert(); return false }
+        for (const f of plan.files) textReplaced(f.path)
+        return true
+    }
+
     // Принять новый текст файла из форм. Правка, после которой Lua перестаёт разбираться, отклоняется.
     function commit(path, src) {
         if (src === null || src === undefined || src === texts[path]) return false
@@ -177,8 +237,8 @@ Singleton {
 
     function revert() {
         for (const p of dirtyList()) {
-            texts[p] = origs[p]
-            docs[p] = Lua.parse(origs[p])
+            if (origs[p] === undefined) { delete texts[p]; delete docs[p] }    // файл, созданный редактором
+            else { texts[p] = origs[p]; docs[p] = Lua.parse(origs[p]) }
             textReplaced(p)
         }
         status = ""
@@ -240,7 +300,7 @@ Singleton {
         const o = optionIndex()[dotPath]
         if (o) return o.generated ? false : commit(o.file, Lua.setPath(texts[o.file], o.tbl, path, text))
 
-        const file = Kinds.OPTION_FILE[path[0]] ?? Kinds.OPTION_FILE_DEFAULT
+        const file = placeFile(Kinds.OPTION_FILE[path[0]] ?? Kinds.OPTION_FILE_DEFAULT, "hl.config")
         const d = docs[file]
         if (!d) return false
         let best = null
@@ -350,7 +410,7 @@ Singleton {
 
     // Новая запись: после последней такой же в файле вида, иначе в конец файла.
     function insertStatement(file, fn, text) {
-        if (!docs[file]) file = current().files[0].path
+        file = placeFile(file, fn)
         const d = docs[file]
         let last = null
         for (const st of d.stmts) if (Lua.callName(st) === fn) last = st
@@ -364,8 +424,16 @@ Singleton {
     // ─── бинды ────────────────────────────────────────────────────────────────
 
     function localStrings(d) {
+        // строковые переменные: свои local файла + глобальные (mainMod = "SUPER" в другом файле, после разбиения)
         const m = {}
-        for (const st of d.stmts) if (st.kind === "local" && st.value && st.value.type === "str") m[st.name] = st.value.v
+        const add = (doc, own) => {
+            if (doc) for (const st of doc.stmts) {
+                if (st.kind === "local" && own && st.value && st.value.type === "str") m[st.name] = st.value.v
+                else if (st.kind === "assign" && st.target && st.target.type === "name" && st.value && st.value.type === "str") m[st.target.v] = st.value.v
+            }
+        }
+        for (const f of current().files) if (docs[f.path] !== d) add(docs[f.path], false)
+        add(d, true)
         return m
     }
     function flattenConcat(n) { return n.type === "bin" && n.op === ".." ? flattenConcat(n.l).concat(flattenConcat(n.r)) : [n] }
@@ -472,7 +540,7 @@ Singleton {
         return t && t.type === "table" ? commit(r.file, Lua.removePath(r.src, t, [key])) : false
     }
     function addBind() {
-        const file = "configs/keybindings.lua"
+        const file = placeFile("configs/keybindings.lua", "hl.bind")
         const d = docs[file]
         const v = d ? modVarFor(file, "SUPER") : ""
         const keys = v ? v + ' .. " + X"' : '"SUPER + X"'
@@ -660,7 +728,7 @@ Singleton {
         const hooks = startHooks()
         const text = "hl.exec_cmd(" + Lua.quote(cmd) + ")"
         if (!hooks.length) {
-            const f = "configs/autostart.lua"
+            const f = placeFile("configs/autostart.lua", "hl.on")
             return docs[f] ? commit(f, Lua.appendStmt(texts[f], 'hl.on("hyprland.start", function ()\n    ' + text + '\nend)')) : false
         }
         const h = hooks[hooks.length - 1]
@@ -843,12 +911,12 @@ Singleton {
         saving = list
         savedCount = 0
         prev = {}
-        for (const p of list) prev[p] = origs[p]
+        for (const p of list) prev[p] = origs[p] ?? ""
         status = "saving"
         statusDetail = ""
         backup.command = ["sh", "-c",
             'd="$1"; shift; mkdir -p "$d" || exit 1; ts=$(date +%Y%m%d-%H%M%S); ' +
-            'for f; do cp -- "$f" "$d/$(printf %s "${f#$HOME/}" | tr / _).$ts" || exit 1; done; ' +
+            'for f; do mkdir -p "$(dirname "$f")"; [ -e "$f" ] || continue; cp -- "$f" "$d/$(printf %s "${f#$HOME/}" | tr / _).$ts" || exit 1; done; ' +
             'ls -1t "$d" | tail -n +301 | while read -r x; do rm -- "$d/$x"; done',
             "sh", backupDir].concat(list.map(fullPath))
         backup.running = true

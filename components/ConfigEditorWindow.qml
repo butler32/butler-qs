@@ -113,6 +113,34 @@ FloatingWindow {
                 }
             }
 
+            // ── всё лежит в одном файле: предложить разбить ───────────────────
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: splitRow.implicitHeight + Theme.padding
+                visible: ConfigEditor.splittable
+                radius: Theme.radiusItem
+                color: Theme.surface
+                border.width: 1
+                border.color: Theme.accent
+                RowLayout {
+                    id: splitRow
+                    anchors.fill: parent
+                    anchors.margins: Theme.padding / 2
+                    spacing: Theme.gap
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        text: I18n.tr("cfged.split.hint")
+                    }
+                    Chip {
+                        text: I18n.tr("cfged.split")
+                        accent: true
+                        enabled: !ConfigEditor.busy
+                        onClicked: ConfigEditor.splitIntoFiles()
+                    }
+                }
+            }
+
             // ── ошибки hyprctl configerrors ──────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true

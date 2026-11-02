@@ -85,12 +85,36 @@ PanelWindow {
                     .map(x => x.it)]
     }
 
-    onPageIdChanged: pages.opened(pageId)
+    // Страница с асинхронными данными (буфер обмена) дозаполняется после открытия, и
+    // выбор уезжает вместе с вставляемыми строками — пока страница «свежая», держим его на первой
+    property bool fresh: true
+    onPageIdChanged: { pages.opened(pageId); fresh = true; freshTimer.restart(); Qt.callLater(restoreView) }
+    onResultsChanged: if (fresh) Qt.callLater(restoreView)
+    Timer { id: freshTimer; interval: 400; onTriggered: win.fresh = false }
     Component.onCompleted: pages.opened(pageId)
 
-    function goto(id) { pageStack = [...pageStack, id]; input.text = "" }
+    // выбранная строка каждой страницы стека: при возврате назад выбор остаётся там, где был
+    property var savedIdx: []
+    property var savedY: []
+    property int wantIndex: 0
+    property real wantY: -1   // -1 — прокрутку не восстанавливать
+    function restoreView() {
+        list.currentIndex = Math.max(0, Math.min(wantIndex, list.count - 1))
+        if (wantY >= 0) list.contentY = Math.min(wantY, Math.max(0, list.contentHeight - list.height))
+    }
+    function goto(id) {
+        savedIdx = [...savedIdx, Math.max(0, list.currentIndex)]
+        savedY = [...savedY, list.contentY]
+        wantIndex = 0; wantY = -1
+        pageStack = [...pageStack, id]; input.text = ""
+    }
     function back() {
-        if (pageStack.length > 1) { pageStack = pageStack.slice(0, -1); input.text = "" }
+        if (pageStack.length > 1) {
+            wantIndex = savedIdx.length > 0 ? savedIdx[savedIdx.length - 1] : 0
+            wantY = savedY.length > 0 ? savedY[savedY.length - 1] : -1
+            savedIdx = savedIdx.slice(0, -1); savedY = savedY.slice(0, -1)
+            pageStack = pageStack.slice(0, -1); input.text = ""
+        }
         else win.close()
     }
     // Смена настроек пересобирает модель и сбрасывает выбор — возвращаем его на место
@@ -106,7 +130,11 @@ PanelWindow {
         if (it.page) goto(it.page)
         else if (it.backAfter) {
             if (it.run) it.run()
-            pageStack = pageStack.slice(0, Math.max(1, pageStack.length - it.backAfter))
+            const n = Math.max(1, pageStack.length - it.backAfter)
+            wantIndex = savedIdx[n - 1] ?? 0
+            wantY = savedY[n - 1] ?? -1
+            savedIdx = savedIdx.slice(0, n - 1); savedY = savedY.slice(0, n - 1)
+            pageStack = pageStack.slice(0, n)
             input.text = ""
         } else if (it.keepOpen) {
             if (it.clearQuery) { if (it.run) it.run(); input.text = "" }   // после ввода строка поиска пуста

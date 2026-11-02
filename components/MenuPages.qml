@@ -78,6 +78,7 @@ QtObject {
         case "cfg.apps": return missingPinnedApps().concat(apps(e => Config.togglePinnedApp(e.id), 0, e => Config.apps.pinned.includes(e.id)))
         case "cfg.sys": return cfgSys()
         case "cfg.osd": return cfgOsd()
+        case "cfg.win": return cfgWindowing()
         case "cfg.bar": return cfgBar()
         case "cfg.bar.mon": return cfgBarMonitors()
         case "cfg.bar.mon.one": return cfgBarMonitor(arg)
@@ -99,6 +100,8 @@ QtObject {
     function root() {
         return [
             { name: I18n.tr("menu.apps"), comment: I18n.tr("menu.apps.hint"), icon: "", page: "apps" },
+            { name: I18n.tr("winmode.toggle"), comment: WinMode.windowed ? I18n.tr("winmode.to.tiling") : I18n.tr("winmode.to.windowed"),
+              icon: "\uf2d2", run: () => WinMode.toggle() },
             { name: I18n.tr("menu.windows"), comment: I18n.tr("menu.windows.hint"), icon: "\uf2d2", page: "windows" },
             ...(Clipboard.active ? [{ name: I18n.tr("menu.clip"), comment: I18n.tr("menu.clip.hint"), icon: "\uf0ea", page: "clip" }] : []),
             { name: I18n.tr("menu.shot"), comment: I18n.tr("menu.shot.hint"), icon: "\uf030", page: "shot" },
@@ -378,6 +381,7 @@ QtObject {
             { name: I18n.tr("cfg.apps"), comment: I18n.tr("cfg.apps.hint"), icon: "\uf00a", page: "cfg.apps" },
             { name: I18n.tr("cfg.sys"), comment: I18n.tr("cfg.sys.hint"), icon: "\uf080", page: "cfg.sys" },
             { name: I18n.tr("cfg.osd"), comment: I18n.tr("cfg.osd.hint"), icon: "\uf028", page: "cfg.osd" },
+            { name: I18n.tr("cfg.win"), comment: I18n.tr("cfg.win.hint"), icon: "\uf2d2", page: "cfg.win" },
             { name: I18n.tr("cfg.claude"), comment: I18n.tr("cfg.claude.hint"), icon: "\uf121", page: "cfg.claude" }
         ]
     }
@@ -622,8 +626,26 @@ QtObject {
         ]
     }
 
+    function cfgWindowing() {
+        const c = Config.windowing
+        return [
+            { name: I18n.tr("cfg.win.policy"), comment: I18n.tr("cfg.win.policy.hint"), icon: "\uf0e8", keepOpen: true,
+              value: I18n.tr("cfg.win.policy." + c.newWindowPolicy),
+              adjust: () => c.newWindowPolicy = c.newWindowPolicy === "smart" ? "last" : "smart",
+              run: () => c.newWindowPolicy = c.newWindowPolicy === "smart" ? "last" : "smart" },
+            toggleItem(I18n.tr("cfg.win.remember"), I18n.tr("cfg.win.remember.hint"), "\uf0c7",
+                       () => c.rememberGeometry, v => c.rememberGeometry = v),
+            numberItem(I18n.tr("cfg.win.icon"), I18n.tr("cfg.win.icon.hint"), "\uf03e",
+                       () => c.dockIconSize, v => c.dockIconSize = v, 24, 72, 4, v => v + " px"),
+            numberItem(I18n.tr("cfg.win.zoom"), I18n.tr("cfg.win.zoom.hint"), "\uf00e",
+                       () => c.dockZoom, v => c.dockZoom = v, 100, 250, 10, v => v + " %"),
+            numberItem(I18n.tr("cfg.win.radius"), I18n.tr("cfg.win.radius.hint"), "\uf192",
+                       () => c.dockRadius, v => c.dockRadius = v, 30, 200, 10, v => v + " px")
+        ]
+    }
+
     readonly property var barIcons: ({
-        workspaces: "\uf009", apps: "\uf00a", media: "\uf001", sysmon: "\uf080", claude: "\uf121",
+        workspaces: "\uf009", winmode: "\uf2d2", apps: "\uf00a", media: "\uf001", sysmon: "\uf080", claude: "\uf121",
         tray: "\uf2d0", network: "\uf1eb", bluetooth: "\uf293", battery: "\uf240", power: "\uf0e7",
         language: "\uf11c", mixer: "\uf028"
     })

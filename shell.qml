@@ -21,6 +21,15 @@ ShellRoot {
         }
     }
 
+    // Нижняя панель окон — только в оконном режиме
+    Variants {
+        model: WinMode.windowed ? Quickshell.screens : []
+        WindowDock {
+            required property var modelData
+            screen: modelData
+        }
+    }
+
     NotificationPopups {}
     OsdPopup {}
 
@@ -58,6 +67,17 @@ ShellRoot {
         function open(): void { shell.menuPage = "root"; menuLoader.active = true }
         function page(id: string): void { menuLoader.active = false; shell.menuPage = id; menuLoader.active = true }
         function close(): void { menuLoader.active = false }
+    }
+
+    // qs -c butler ipc call winmode toggle | tiling | windowed | get | minimize <addr> | unminimize <addr>
+    IpcHandler {
+        target: "winmode"
+        function toggle(): void { WinMode.toggle() }
+        function tiling(): void { WinMode.set("tiling") }
+        function windowed(): void { WinMode.set("windowed") }
+        function get(): string { return WinMode.mode }
+        function minimize(address: string): void { WinMode.minimize(address) }
+        function unminimize(address: string): void { WinMode.unminimize(address) }
     }
 
     // qs -c butler ipc call osd event <brightness|capslock|volume|mic> <значение>

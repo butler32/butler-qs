@@ -25,6 +25,7 @@ Singleton {
     readonly property var night: adapter.night
     readonly property var screenshot: adapter.screenshot
     readonly property var clipboard: adapter.clipboard
+    readonly property var windowing: adapter.windowing
 
     FileView {
         id: file
@@ -81,6 +82,18 @@ Singleton {
                 // id .desktop-файлов приложений в виджете иконок; по умолчанию пусто
                 property var pinned: []
             }
+            property JsonObject windowing: JsonObject {
+                // Оконный режим (services/WinMode.qml)
+                // Куда класть окна, открытые в оконном режиме, при возврате в тайлинг:
+                // "smart" — воркспейс по правилу / того же приложения / прежний; "last" — воркспейс до входа
+                property string newWindowPolicy: "smart"
+                // Помнить позицию и размер приложения между сессиями оконного режима
+                property bool rememberGeometry: true
+                // Нижняя панель окон
+                property int dockIconSize: 40
+                property int dockZoom: 170       // % максимального увеличения иконки под курсором
+                property int dockRadius: 90      // px: на каком расстоянии от курсора соседи ещё увеличиваются
+            }
             property JsonObject sysmon: JsonObject {
                 property MetricConfig cpuLoad: MetricConfig { mode: "always"; yellow: 60; red: 85 }
                 property MetricConfig cpuTemp: MetricConfig { mode: "yellow"; yellow: 70; red: 85 }
@@ -103,7 +116,7 @@ Singleton {
             }
             property JsonObject bar: JsonObject {
                 // Порядок виджетов; "|" — разделитель: всё до него слева, после — справа
-                property var order: ["workspaces", "apps", "media", "|", "sysmon", "claude", "tray",
+                property var order: ["workspaces", "winmode", "apps", "media", "|", "sysmon", "claude", "tray",
                                      "network", "bluetooth", "battery", "power", "language", "mixer"]
                 // id виджетов, скрытых на всех мониторах
                 property var hidden: []
@@ -211,7 +224,7 @@ Singleton {
 
     // ---------- раскладка бара ----------
 
-    readonly property var barWidgetIds: ["workspaces", "apps", "media", "sysmon", "claude", "tray",
+    readonly property var barWidgetIds: ["workspaces", "winmode", "apps", "media", "sysmon", "claude", "tray",
                                          "network", "bluetooth", "battery", "power", "language", "mixer"]
 
     // Порядок из конфига, приведённый к корректному виду: неизвестные id и дубли

@@ -13,3 +13,4 @@ singleton ConfigEditor 1.0 ConfigEditor.qml
 singleton HyprInfo 1.0 HyprInfo.qml
 singleton ConfigDropdown 1.0 ConfigDropdown.qml
 singleton BtAdapters 1.0 BtAdapters.qml
+singleton WinMode 1.0 WinMode.qml

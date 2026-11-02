@@ -15,11 +15,12 @@ PanelWindow {
     color: Theme.bg
 
     readonly property var widgets: ({
-        workspaces: workspaces, apps: apps, media: media, sysmon: sysmon, claude: claude,
+        workspaces: workspaces, winmode: winmode, apps: apps, media: media, sysmon: sysmon, claude: claude,
         tray: tray, network: network, bluetooth: bluetooth, battery: battery,
         power: power, language: language, mixer: mixer
     })
     Component { id: workspaces; Workspaces {} }
+    Component { id: winmode; WinModeToggle {} }
     Component { id: apps; AppDock {} }
     Component { id: media; Media {} }
     Component { id: sysmon; SysMon {} }

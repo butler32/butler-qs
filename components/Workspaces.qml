@@ -9,6 +9,7 @@ import "../services"
 // Настраивается через Меню → Конфигурация → Воркспейсы (см. Config.ws).
 Panel {
     id: root
+    wanted: !WinMode.windowed
     readonly property var w: Config.ws
     property bool expanded: false
     readonly property int focusedId: Hyprland.focusedWorkspace?.id ?? -1

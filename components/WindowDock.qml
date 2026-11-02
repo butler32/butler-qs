@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import "../theme"
 import "../config"
 import "../services"
+import "../i18n"
 
 // Нижняя панель оконного режима: иконки открытых окон (по приложениям) и закреплённых
 // приложений, увеличение под курсором как в macOS. Параметры: Config.windowing.
@@ -19,7 +20,7 @@ PanelWindow {
     readonly property int monId: Hyprland.monitorFor(screen)?.id ?? -1
 
     anchors { bottom: true; left: true; right: true }
-    implicitHeight: base * zoom + pad * 2 + 30
+    implicitHeight: Math.max(base * zoom + pad * 2 + 30, 230)
     exclusiveZone: pillH + Theme.barMargin
     color: "transparent"
     WlrLayershell.namespace: "butler-dock"
@@ -64,7 +65,8 @@ PanelWindow {
     onRawGroupsChanged: {
         const keys = rawGroups.map(g => g.key)
         const kept = order.filter(k => keys.includes(k))
-        const fresh = keys.filter(k => !kept.includes(k))
+        const pinIdx = k => { const g = rawGroups.find(x => x.key === k); const i = Config.apps.pinned.indexOf(g?.pinId); return i < 0 ? 1e6 : i }
+        const fresh = keys.filter(k => !kept.includes(k)).sort((a, b) => pinIdx(a) - pinIdx(b))
         if (fresh.length || kept.length !== order.length) order = kept.concat(fresh)
     }
 
@@ -85,14 +87,37 @@ PanelWindow {
         else Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + target.addr + "\" })")
     }
 
+    // ── контекстное меню ──
+    property var menuGroup: null
+    property real menuCx: 0
+    function menuItems(g) {
+        const w = g.wins.find(x => x.active) ?? g.wins[g.wins.length - 1]
+        const addr = w?.addr
+        const sel = "window = \"address:" + addr + "\""
+        const items = []
+        if (!w) items.push({ t: "dock.open", run: () => entryFor(g)?.execute() })
+        else {
+            items.push({ t: w.minimized ? "dock.restore" : "dock.minimize", run: () => w.minimized ? WinMode.unminimize(addr) : WinMode.minimize(addr) })
+            items.push({ t: "dock.maximize", run: () => Hyprland.dispatch("hl.dsp.window.fullscreen({ mode = \"maximized\", action = \"toggle\", " + sel + " })") })
+            items.push({ t: "dock.fullscreen", run: () => Hyprland.dispatch("hl.dsp.window.fullscreen({ mode = \"fullscreen\", action = \"toggle\", " + sel + " })") })
+            items.push({ t: "dock.close", danger: true, run: () => Hyprland.dispatch("hl.dsp.window.close({ " + sel + " })") })
+        }
+        const id = g.pinId ?? entryFor(g)?.id
+        if (id) items.push({ t: g.pinned ? "dock.unpin" : "dock.pin", run: () => Config.togglePinnedApp(id) })
+        return items
+    }
+
     // ── увеличение ──
     property real mouseX: -1e4
     readonly property bool hovering: mouseX > -1e3
     readonly property real unitW: base + gapPx
+    readonly property real unscaledW: Math.max(groups.length * unitW - gapPx, 0)
+    // ширина области мыши не зависит от текущего увеличения (иначе цикл раскладки)
+    readonly property real hitW: unscaledW + pad * 2 + base * zoom * 2
     function scaleAt(i) {
         if (!hovering) return 1
-        const c = hitInner.width / 2 - groups.length * unitW / 2 + i * unitW + base / 2
-        const d = (mouseX - hitInner.x - c) / cfg.dockRadius
+        const c = hitW / 2 - unscaledW / 2 + i * unitW + base / 2
+        const d = (mouseX - c) / cfg.dockRadius
         return 1 + (zoom - 1) * Math.exp(-d * d)
     }
 
@@ -101,8 +126,8 @@ PanelWindow {
         id: hit
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.max(row.width, 1) + pad * 2 + 40
-        height: dock.hovering ? dock.height : dock.pillH + Theme.barMargin
+        width: dock.hitW
+        height: dock.hovering || dock.menuGroup ? dock.height : dock.pillH + Theme.barMargin
         visible: dock.groups.length > 0
 
         MouseArea {
@@ -112,7 +137,6 @@ PanelWindow {
             onPositionChanged: m => dock.mouseX = m.x
             onExited: dock.mouseX = -1e4
         }
-        Item { id: hitInner; x: 0; y: 0; width: parent.width; height: parent.height }
 
         Rectangle {
             id: pill
@@ -193,11 +217,60 @@ PanelWindow {
                             const g = cell.modelData
                             if (m.button === Qt.LeftButton) dock.activate(g)
                             else if (m.button === Qt.MiddleButton) g.wins.forEach(w => Hyprland.dispatch("hl.dsp.window.close({ window = \"address:" + w.addr + "\" })"))
-                            else if (g.wins.length) {
-                                const w = g.wins[g.wins.length - 1]
-                                w.minimized ? WinMode.unminimize(w.addr) : WinMode.minimize(w.addr)
+                            else {
+                                dock.menuCx = cell.mapToItem(null, cell.width / 2, 0).x
+                                dock.menuGroup = g
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // клик мимо меню закрывает его
+    MouseArea {
+        anchors.fill: parent
+        visible: dock.menuGroup !== null
+        onClicked: dock.menuGroup = null
+        z: 5
+    }
+    Rectangle {
+        id: menu
+        visible: dock.menuGroup !== null
+        z: 6
+        x: Math.max(4, Math.min(dock.width - width - 4, dock.menuCx - width / 2))
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: dock.pillH + Theme.barMargin + 10
+        width: 200
+        height: menuCol.implicitHeight + 12
+        radius: Theme.radiusPanel
+        color: Theme.surface
+        border.width: Theme.borderWidth
+        border.color: Theme.border
+        Column {
+            id: menuCol
+            x: 6; y: 6; width: parent.width - 12
+            Repeater {
+                model: dock.menuGroup ? dock.menuItems(dock.menuGroup) : []
+                delegate: Rectangle {
+                    required property var modelData
+                    width: menuCol.width
+                    height: 30
+                    radius: Theme.radiusItem
+                    color: mi.containsMouse ? Theme.surfaceAlt : "transparent"
+                    Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: 10
+                        text: I18n.tr(parent.modelData.t)
+                        color: parent.modelData.danger ? Theme.danger : Theme.text
+                    }
+                    MouseArea {
+                        id: mi
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: { const m = parent.modelData; dock.menuGroup = null; m.run() }
                     }
                 }
             }

@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import "../config"
+import "../i18n"
 
 // Оконный режим: тайлинг ⇄ плавающие окна на одном воркспейсе каждого монитора.
 // План и обоснование: docs/window-mode.md. Владелец состояния — этот синглтон:
@@ -97,7 +98,8 @@ Singleton {
         const next = () => {
             if (i >= steps.length) { done(); return }
             const s = steps[i++]
-            if (s.wait !== undefined) waitTimer(s.wait, next)
+            if (s.notify) { notifyPlaced(s.notify); next() }
+            else if (s.wait !== undefined) waitTimer(s.wait, next)
             else if (s.gather) gather(st => { steps.splice(i, 0, ...s.gather(st)); next() })
             else if (s.cmds && s.cmds.length) batch(s.cmds, next)
             else next()
@@ -107,6 +109,10 @@ Singleton {
 
     Component { id: timerComp; Timer { property var cb; onTriggered: { cb(); destroy() } } }
     function waitTimer(ms, cb) { timerComp.createObject(root, { interval: ms, running: true, cb: cb }) }
+
+    function notifyPlaced(n) {
+        exec(["notify-send", "-a", "butler", I18n.tr("winmode.placed.title"), I18n.tr("winmode.placed").replace("%1", n)], () => {})
+    }
 
     // команды: "eval <lua>" или текст Lua-диспетчера
     function batch(cmds, cb) {
@@ -303,6 +309,8 @@ Singleton {
             steps.push({ cmds: sizes }, { wait: 120 }, { cmds: sizes })
             steps.push({ gather: st2 => verifySteps(st2, tiling) })
             const focus = items.filter(it => it.rec).sort((x, y) => y.rec.order - x.rec.order).map(it => dFocusWin(it.c.address))
+            const fresh = items.filter(it => !it.rec).length
+            if (fresh > 0) steps.push({ notify: fresh })
             steps.push({ cmds: after.concat(focus) })
             const mons = Object.keys(tiling.activeWs).sort((a, b) => (a === tiling.focusedMon) - (b === tiling.focusedMon))
             steps.push({ cmds: mons.map(m => dFocusWs(tiling.activeWs[m])) })

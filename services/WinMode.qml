@@ -181,6 +181,7 @@ Singleton {
     }
     function dPin(a, on) { return "hl.dsp.window.pin({ action = \"" + (on ? "enable" : "disable") + "\", " + sel(a) + " })" }
     function dFocusWin(a) { return "hl.dsp.focus({ window = \"address:" + a + "\" })" }
+    function dTop(a) { return "hl.dsp.window.alter_zorder({ mode = \"top\", " + sel(a) + " })" }
     function dFocusWs(id) { return "hl.dsp.focus({ workspace = " + id + " })" }
     function dFocusMon(name) { return "hl.dsp.focus({ monitor = \"" + name + "\" })" }
 
@@ -201,7 +202,7 @@ Singleton {
     function enterWindowed() {
         if (busy || mode === "windowed") return
         busy = true
-        gather(st => {
+        gather(st => { try {
             const tiling = snapshot(st)
             snaps.tiling = tiling
             mode = "windowed"
@@ -238,13 +239,13 @@ Singleton {
                 delete snaps.minOrigin[c.address]
             }
             // фокус от старых окон к свежим, затем активные воркспейсы мониторов; главный монитор — последним
-            steps.push({ cmds: list.map(c => dFocusWin(c.address)) })
+            steps.push({ cmds: list.reduce((acc, c) => acc.concat([dFocusWin(c.address), dTop(c.address)]), []) })
             const mons = Object.keys(tiling.oneWs).sort((a, b) => (a === tiling.focusedMon) - (b === tiling.focusedMon))
             steps.push({ cmds: mons.map(m => dFocusMon(m)) })
             steps.push({ cmds: after })
             if (tiling.activeAddr) steps.push({ cmds: [dFocusWin(tiling.activeAddr)] })
             runSteps(steps, () => gather(st2 => { snaps.windowed = snapshot(st2); save(); busy = false; Hyprland.refreshToplevels() }))
-        })
+        } catch (e) { console.warn("winmode: enter failed:", e); mode = "tiling"; writeMode(); busy = false } })
     }
 
     // ───────────────────── возврат в тайлинг ─────────────────────
@@ -265,7 +266,7 @@ Singleton {
     function leaveWindowed() {
         if (busy || mode !== "windowed") return
         busy = true
-        gather(st => {
+        gather(st => { try {
             const wsnap = snapshot(st)
             snaps.windowed = wsnap
             rememberClasses(wsnap)
@@ -320,7 +321,7 @@ Singleton {
             steps.push({ cmds: mons.map(m => dFocusWs(tiling.activeWs[m])) })
             if (tiling.activeAddr) steps.push({ cmds: [dFocusWin(tiling.activeAddr)] })
             runSteps(steps, () => { save(); busy = false; Hyprland.refreshToplevels() })
-        })
+        } catch (e) { console.warn("winmode: leave failed:", e); busy = false } })
     }
 
     // окно без записи в снимке: делим пополам самое большое из уже стоящих (не позиция курсора)
@@ -384,8 +385,13 @@ Singleton {
             const ws = snaps.minOrigin[address] ?? mon.activeWorkspace.id
             delete snaps.minOrigin[address]
             save()
-            batch([dMoveWs(address, ws), dFocusWin(address)], () => Hyprland.refreshToplevels())
+            batch([dMoveWs(address, ws), dFocusWin(address), dTop(address)], () => Hyprland.refreshToplevels())
         })
+    }
+
+    // вывести окно на передний план и сфокусировать (для плавающих focus сам порядок не меняет)
+    function raise(address) {
+        batch([dFocusWin(address), dTop(address)], () => {})
     }
 
     // ───────────────────── публичное API ─────────────────────

@@ -69,13 +69,14 @@ ShellRoot {
         function close(): void { menuLoader.active = false }
     }
 
-    // qs -c butler ipc call winmode toggle | tiling | windowed | get | minimize <addr> | unminimize <addr>
+    // qs -c butler ipc call winmode toggle | tiling | windowed | get | raise <addr> | minimize <addr> | unminimize <addr>
     IpcHandler {
         target: "winmode"
         function toggle(): void { WinMode.toggle() }
         function tiling(): void { WinMode.set("tiling") }
         function windowed(): void { WinMode.set("windowed") }
         function get(): string { return WinMode.mode }
+        function raise(address: string): void { WinMode.raise(address) }
         function minimize(address: string): void { WinMode.minimize(address) }
         function unminimize(address: string): void { WinMode.unminimize(address) }
     }

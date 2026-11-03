@@ -78,7 +78,7 @@ PanelWindow {
         const target = vis.length === 1 ? vis[0] : (vis[(i + 1) % vis.length])
         if (target.minimized) WinMode.unminimize(target.addr)
         else if (target.active && vis.length === 1) WinMode.minimize(target.addr)
-        else Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + target.addr + "\" })")
+        else WinMode.raise(target.addr)
     }
 
     // ── контекстное меню ──

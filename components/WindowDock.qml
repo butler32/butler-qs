@@ -38,11 +38,11 @@ PanelWindow {
             if (!o || !o.mapped) continue
             const wsn = o.workspace?.name ?? ""
             if (!(o.workspace?.id > 0 || wsn === "special:minimized")) continue
-            const key = Windows.norm(o.class)
-            if (!key) continue
-            const g = map[key] ?? (map[key] = { key: key, cls: o.class, wins: [] })
-            g.wins.push({ addr: Windows.address(t), title: o.title, minimized: wsn === "special:minimized",
-                          active: t.activated, focusId: o.focusHistoryID })
+            if (!Windows.norm(o.class)) continue
+            const addr = Windows.address(t)
+            // одно окно — одна иконка
+            map[addr] = { key: addr, cls: o.class, wins: [{ addr: addr, title: o.title,
+                          minimized: wsn === "special:minimized", active: t.activated, focusId: o.focusHistoryID }] }
         }
         const list = Object.values(map)
         for (const g of list) g.wins.sort((a, b) => a.focusId - b.focusId)

@@ -19,6 +19,9 @@ PanelWindow {
     readonly property real pillH: base + pad * 2
     readonly property int monId: Hyprland.monitorFor(screen)?.id ?? -1
 
+    // lastIpcObject пуст, пока тополевелы не обновили вручную
+    Component.onCompleted: Hyprland.refreshToplevels()
+
     anchors { bottom: true; left: true; right: true }
     implicitHeight: Math.max(base * zoom + pad * 2 + 30, 230)
     exclusiveZone: pillH + Theme.barMargin

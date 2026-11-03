@@ -124,11 +124,11 @@ Singleton {
 
     function gather(cb) {
         exec(["sh", "-c",
-              "hyprctl clients -j; echo @@@; hyprctl monitors -j; echo @@@; hyprctl workspacerules -j; echo @@@; hyprctl activewindow -j"],
+              "hyprctl clients -j; echo @@@; hyprctl monitors -j; echo @@@; hyprctl workspacerules -j; echo @@@; hyprctl activewindow -j; echo @@@; hyprctl workspaces -j"],
              out => {
             const p = out.split("\n@@@\n")
             const j = s => { try { return JSON.parse(s) } catch (e) { return null } }
-            const st = { clients: j(p[0]) ?? [], monitors: j(p[1]) ?? [], rules: j(p[2]) ?? [], active: j(p[3]) }
+            const st = { clients: j(p[0]) ?? [], monitors: j(p[1]) ?? [], rules: j(p[2]) ?? [], active: j(p[3]), workspaces: j(p[4]) ?? [] }
             st.monName = {}
             for (const m of st.monitors) st.monName[m.id] = m.name
             cb(st)
@@ -137,10 +137,10 @@ Singleton {
 
     function wsNum(s) { const n = parseInt(s); return n === 0 ? 10 : n }   // "0" на клавише = 10
 
-    // «Оконный» воркспейс монитора: наименьший из workspace-rules монитора, иначе активный на нём
+    // «Оконный» воркспейс монитора: тот, что на нём активен (воркспейсы между мониторами не переносим:
+    // workspace-rules и реальное расположение воркспейсов могут не совпадать)
     function oneWorkspace(st, mon) {
-        const ids = st.rules.filter(r => r.monitor === mon.name).map(r => wsNum(r.workspaceString)).filter(n => n > 0)
-        return ids.length ? Math.min(...ids) : mon.activeWorkspace.id
+        return mon.activeWorkspace.id > 0 ? mon.activeWorkspace.id : 1
     }
 
     // окна, которыми управляем: обычные воркспейсы и наш special:minimized
@@ -243,20 +243,20 @@ Singleton {
             steps.push({ cmds: mons.map(m => dFocusMon(m)) })
             steps.push({ cmds: after })
             if (tiling.activeAddr) steps.push({ cmds: [dFocusWin(tiling.activeAddr)] })
-            runSteps(steps, () => gather(st2 => { snaps.windowed = snapshot(st2); save(); busy = false }))
+            runSteps(steps, () => gather(st2 => { snaps.windowed = snapshot(st2); save(); busy = false; Hyprland.refreshToplevels() }))
         })
     }
 
     // ───────────────────── возврат в тайлинг ─────────────────────
 
-    function targetWorkspace(c, st, tiling) {
-        const rec = tiling.windows[c.address]
+    function targetWorkspace(c, st, tiling, rec) {
         if (rec && rec.ws > 0) return rec.ws
         const mon = st.monName[c.monitor]
         if (Config.windowing.newWindowPolicy === "last") return tiling.activeWs[mon] ?? 1
         // 1. правило windows.lua; 2. окна того же класса на этом мониторе; 3. воркспейс до входа
         const home = homeRules[(c.class ?? "").toLowerCase()]
-        if (home) return home
+        // воркспейс по правилу годится, только если он живёт на этом же мониторе
+        if (home && st.workspaces.some(w => w.id === home && w.monitor === mon)) return home
         for (const o of Object.values(tiling.windows))
             if (o.cls === c.class && o.mon === mon && o.ws > 0) return o.ws
         return tiling.activeWs[mon] ?? 1
@@ -274,8 +274,10 @@ Singleton {
             writeMode()
             const list = managed(st)
             const items = list.map(c => {
-                const rec = tiling.windows[c.address]
-                return { c: c, rec: rec, ws: targetWorkspace(c, st, tiling) }
+                // окно, перетащенное на другой монитор, считаем новым для него
+                const r0 = tiling.windows[c.address]
+                const rec = r0 && r0.mon === st.monName[c.monitor] ? r0 : null
+                return { c: c, rec: rec, ws: targetWorkspace(c, st, tiling, rec) }
             })
             // по воркспейсам, внутри — в порядке «слева направо, сверху вниз» по снимку тайлинга
             const key = it => it.rec ? [it.rec.x, it.rec.y] : [1e9, 1e9]
@@ -317,7 +319,7 @@ Singleton {
             const mons = Object.keys(tiling.activeWs).sort((a, b) => (a === tiling.focusedMon) - (b === tiling.focusedMon))
             steps.push({ cmds: mons.map(m => dFocusWs(tiling.activeWs[m])) })
             if (tiling.activeAddr) steps.push({ cmds: [dFocusWin(tiling.activeAddr)] })
-            runSteps(steps, () => { save(); busy = false })
+            runSteps(steps, () => { save(); busy = false; Hyprland.refreshToplevels() })
         })
     }
 
@@ -370,7 +372,7 @@ Singleton {
             if (!c || c.workspace.id <= 0) return
             snaps.minOrigin[address] = c.workspace.id
             save()
-            batch([dMoveWs(address, "\"special:minimized\"")], () => {})
+            batch([dMoveWs(address, "\"special:minimized\"")], () => Hyprland.refreshToplevels())
         })
     }
 
@@ -382,7 +384,7 @@ Singleton {
             const ws = snaps.minOrigin[address] ?? mon.activeWorkspace.id
             delete snaps.minOrigin[address]
             save()
-            batch([dMoveWs(address, ws), dFocusWin(address)], () => {})
+            batch([dMoveWs(address, ws), dFocusWin(address)], () => Hyprland.refreshToplevels())
         })
     }
 

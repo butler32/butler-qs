@@ -385,13 +385,15 @@ Singleton {
             const ws = snaps.minOrigin[address] ?? mon.activeWorkspace.id
             delete snaps.minOrigin[address]
             save()
-            batch([dMoveWs(address, ws), dFocusWin(address), dTop(address)], () => Hyprland.refreshToplevels())
+            batch([dMoveWs(address, ws)], () => { raise(address); Hyprland.refreshToplevels() })
         })
     }
 
     // вывести окно на передний план и сфокусировать (для плавающих focus сам порядок не меняет)
     function raise(address) {
-        batch([dFocusWin(address), dTop(address)], () => {})
+        // без переноса курсора на окно: no_warps включаем только на время фокуса
+        batch(["eval hl.config({ cursor = { no_warps = true } })", dFocusWin(address), dTop(address),
+               "eval hl.config({ cursor = { no_warps = false } })"], () => {})
     }
 
     // ───────────────────── публичное API ─────────────────────

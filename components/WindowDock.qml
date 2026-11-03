@@ -26,6 +26,9 @@ PanelWindow {
     exclusiveZone: autoHide ? 0 : pillH + Theme.barMargin
     color: "transparent"
     WlrLayershell.namespace: "butler-dock"
+    // скрытый док выезжает и поверх окна в полноэкранном режиме (иначе из него не выйти);
+    // постоянный док остаётся на слое Top и полноэкранное окно его перекрывает
+    WlrLayershell.layer: autoHide ? WlrLayer.Overlay : WlrLayer.Top
     // скрытый док принимает мышь только на тонкой полосе у нижнего края
     mask: Region { item: dock.autoHide && !dock.revealed ? strip : hit }
 

@@ -277,7 +277,8 @@ Singleton {
             const items = list.map(c => {
                 // окно, перетащенное на другой монитор, считаем новым для него
                 const r0 = tiling.windows[c.address]
-                const rec = r0 && r0.mon === st.monName[c.monitor] ? r0 : null
+                // у свёрнутого окна монитор не показателен: доверяем снимку
+                const rec = r0 && (r0.mon === st.monName[c.monitor] || c.workspace.id < 0) ? r0 : null
                 return { c: c, rec: rec, ws: targetWorkspace(c, st, tiling, rec) }
             })
             // по воркспейсам, внутри — в порядке «слева направо, сверху вниз» по снимку тайлинга

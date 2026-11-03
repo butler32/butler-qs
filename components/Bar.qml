@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import "../theme"
 import "../config"
+import "../services" as Svc
 
 // Виджеты и их порядок задаются в Config.bar (Меню → Конфигурация → Виджеты бара);
 // часы по центру и кнопка меню справа — всегда на месте.
@@ -13,6 +14,16 @@ PanelWindow {
     anchors { top: true; left: true; right: true }
     implicitHeight: Theme.barHeight + Theme.barMargin * 2
     color: Theme.bg
+
+    // В оконном режиме окна могут заходить под бар: ловим мышь только на самих виджетах,
+    // пустое место пропускает клики (и перетаскивание заголовков) к окну под баром
+    mask: Svc.WinMode.windowed ? widgetsMask : null
+    Region {
+        id: widgetsMask
+        item: leftRow
+        Region { item: clockGroup }
+        Region { item: rightRow }
+    }
 
     readonly property var widgets: ({
         workspaces: workspaces, winmode: winmode, apps: apps, media: media, sysmon: sysmon, claude: claude,
@@ -45,6 +56,7 @@ PanelWindow {
         anchors.margins: Theme.barMargin
 
         RowLayout {
+            id: leftRow
             anchors.left: parent.left
             spacing: Theme.gap
             Repeater {
@@ -53,9 +65,10 @@ PanelWindow {
             }
         }
 
-        ClockGroup { anchors.centerIn: parent }
+        ClockGroup { id: clockGroup; anchors.centerIn: parent }
 
         RowLayout {
+            id: rightRow
             anchors.right: parent.right
             spacing: Theme.gap
             Repeater {

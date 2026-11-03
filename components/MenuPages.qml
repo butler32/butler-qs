@@ -626,6 +626,11 @@ QtObject {
         ]
     }
 
+    function nextFrame(cur, d) {
+        const list = ["none", "mac", "windows"]
+        return list[(list.indexOf(cur) + d + list.length) % list.length]
+    }
+
     function cfgWindowing() {
         const c = Config.windowing
         return [
@@ -641,6 +646,11 @@ QtObject {
                        () => c.dockZoom, v => c.dockZoom = v, 100, 250, 10, v => v + " %"),
             numberItem(I18n.tr("cfg.win.radius"), I18n.tr("cfg.win.radius.hint"), "\uf192",
                        () => c.dockRadius, v => c.dockRadius = v, 30, 200, 10, v => v + " px"),
+            { name: I18n.tr("cfg.win.frame"),
+              comment: WinMode.frameAvailable ? I18n.tr("cfg.win.frame.hint") : I18n.tr("cfg.win.frame.missing"),
+              icon: "\uf2d0", keepOpen: true, value: I18n.tr("cfg.win.frame." + c.frameStyle),
+              adjust: d => c.frameStyle = nextFrame(c.frameStyle, d),
+              run: () => c.frameStyle = nextFrame(c.frameStyle, 1) },
             toggleItem(I18n.tr("cfg.win.autohide"), I18n.tr("cfg.win.autohide.hint"), "\uf070",
                        () => c.dockAutoHide, v => c.dockAutoHide = v)
         ]

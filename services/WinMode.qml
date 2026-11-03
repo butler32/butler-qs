@@ -52,11 +52,38 @@ Singleton {
     function afterLoad() {
         loaded = true
         writeMode()
+        frameProbe.running = true
         readHomeRules()
         if (mode === "windowed") exec(["hyprctl", "eval", "WM_SET(true)"], () => {})
     }
 
     function writeMode() { modeFile.setText(mode + "\n") }
+
+    // ───────────────────── заголовки окон (hyprbars) ─────────────────────
+
+    readonly property string frameStyle: Config.windowing.frameStyle
+    readonly property string hyprbarsSo: (Quickshell.env("HOME") ?? "") + "/.local/share/butler/hyprbars/libhyprbars.so"
+    property bool frameAvailable: false      // плагин собран (scripts/hyprbars/build.sh)
+    FileView { id: frameFile; path: Quickshell.statePath("winmode.style"); printErrors: false }
+    Process {
+        id: frameProbe
+        command: ["sh", "-c", "test -f \"" + root.hyprbarsSo + "\""]
+        onExited: code => { root.frameAvailable = code === 0; root.applyFrame() }
+    }
+
+    // записать стиль для winframe.lua; плагин грузим здесь, а не из конфига (hl.plugin.load в конфиге
+    // вызывает reload, а он выгружает плагин — бесконечный цикл); затем reload, чтобы применить стиль
+    function applyFrame() {
+        if (!loaded) return
+        frameFile.setText(frameStyle + "\n")
+        const want = frameStyle !== "none" && frameAvailable
+        exec(["sh", "-c",
+              "loaded=$(hyprctl plugin list | grep -c hyprbars); " +
+              (want ? "if [ \"$loaded\" = 0 ]; then hyprctl plugin load \"" + hyprbarsSo + "\"; fi; hyprctl reload"
+                    : "if [ \"$loaded\" != 0 ]; then hyprctl reload; fi")],
+             () => {})
+    }
+    onFrameStyleChanged: applyFrame()
 
     function save() {
         store.setText(JSON.stringify({
@@ -377,6 +404,14 @@ Singleton {
             batch([dMoveWs(address, "\"special:minimized\"")], () => Hyprland.refreshToplevels())
         })
     }
+
+    // свернуть активное окно (кнопка заголовка: клик по полосе сначала фокусирует окно)
+    function minimizeActive() {
+        const t = Hyprland.activeToplevel
+        if (t) minimize(address(t))
+    }
+
+    function address(t) { return t.address.startsWith("0x") ? t.address : "0x" + t.address }
 
     function unminimize(address) {
         gather(st => {

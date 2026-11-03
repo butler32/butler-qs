@@ -94,6 +94,8 @@ Singleton {
                 property int dockZoom: 170       // % максимального увеличения иконки под курсором
                 property int dockRadius: 90      // px: на каком расстоянии от курсора соседи ещё увеличиваются
                 property bool dockAutoHide: true // док выезжает, когда курсор у нижнего края экрана
+                // Заголовки окон в оконном режиме (плагин hyprbars): "none" | "mac" | "windows"
+                property string frameStyle: "none"
             }
             property JsonObject sysmon: JsonObject {
                 property MetricConfig cpuLoad: MetricConfig { mode: "always"; yellow: 60; red: 85 }

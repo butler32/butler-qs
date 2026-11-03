@@ -76,6 +76,7 @@ ShellRoot {
         function tiling(): void { WinMode.set("tiling") }
         function windowed(): void { WinMode.set("windowed") }
         function get(): string { return WinMode.mode }
+        function minimizeActive(): void { WinMode.minimizeActive() }
         function raise(address: string): void { WinMode.raise(address) }
         function minimize(address: string): void { WinMode.minimize(address) }
         function unminimize(address: string): void { WinMode.unminimize(address) }

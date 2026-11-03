@@ -640,7 +640,9 @@ QtObject {
             numberItem(I18n.tr("cfg.win.zoom"), I18n.tr("cfg.win.zoom.hint"), "\uf00e",
                        () => c.dockZoom, v => c.dockZoom = v, 100, 250, 10, v => v + " %"),
             numberItem(I18n.tr("cfg.win.radius"), I18n.tr("cfg.win.radius.hint"), "\uf192",
-                       () => c.dockRadius, v => c.dockRadius = v, 30, 200, 10, v => v + " px")
+                       () => c.dockRadius, v => c.dockRadius = v, 30, 200, 10, v => v + " px"),
+            toggleItem(I18n.tr("cfg.win.autohide"), I18n.tr("cfg.win.autohide.hint"), "\uf070",
+                       () => c.dockAutoHide, v => c.dockAutoHide = v)
         ]
     }
 

@@ -23,10 +23,33 @@ PanelWindow {
 
     anchors { bottom: true; left: true; right: true }
     implicitHeight: Math.max(base * zoom + pad * 2 + 30, 230)
-    exclusiveZone: pillH + Theme.barMargin
+    exclusiveZone: autoHide ? 0 : pillH + Theme.barMargin
     color: "transparent"
     WlrLayershell.namespace: "butler-dock"
-    mask: Region { item: hit }
+    // скрытый док принимает мышь только на тонкой полосе у нижнего края
+    mask: Region { item: dock.autoHide && !dock.revealed ? strip : hit }
+
+    // ── автоскрытие ──
+    readonly property bool autoHide: cfg.dockAutoHide
+    property bool revealed: false
+    readonly property bool keepOpen: dockHover.hovered || menuGroup !== null
+    property real slide: autoHide && !revealed ? pillH + Theme.barMargin + 8 : 0
+    Behavior on slide { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    onKeepOpenChanged: keepOpen ? hideTimer.stop() : hideTimer.restart()
+    onRevealedChanged: if (revealed && !keepOpen) hideTimer.restart()
+    onAutoHideChanged: revealed = false
+    Timer {
+        id: hideTimer
+        interval: 450
+        onTriggered: if (!dock.keepOpen) dock.revealed = false
+    }
+    Item {
+        id: strip
+        anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
+        height: 4
+        visible: dock.autoHide && !dock.revealed && dock.groups.length > 0
+        HoverHandler { onHoveredChanged: if (hovered) dock.revealed = true }
+    }
 
     // ── данные: группы окон по приложению ──
     property var order: []          // стабильный порядок ключей
@@ -116,6 +139,7 @@ PanelWindow {
     Item {
         id: hit
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: -dock.slide
         anchors.horizontalCenter: parent.horizontalCenter
         width: dock.hitW
         height: dock.hovering || dock.menuGroup ? dock.height : dock.pillH + Theme.barMargin
@@ -123,6 +147,7 @@ PanelWindow {
 
         // HoverHandler, а не MouseArea: иконки со своим hover не должны «съедать» положение курсора
         HoverHandler {
+            id: dockHover
             onPointChanged: dock.mouseX = point.position.x
             onHoveredChanged: if (!hovered) dock.mouseX = -1e4
         }

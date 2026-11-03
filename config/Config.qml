@@ -93,6 +93,7 @@ Singleton {
                 property int dockIconSize: 40
                 property int dockZoom: 170       // % максимального увеличения иконки под курсором
                 property int dockRadius: 90      // px: на каком расстоянии от курсора соседи ещё увеличиваются
+                property bool dockAutoHide: true // док выезжает, когда курсор у нижнего края экрана
             }
             property JsonObject sysmon: JsonObject {
                 property MetricConfig cpuLoad: MetricConfig { mode: "always"; yellow: 60; red: 85 }

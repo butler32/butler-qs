@@ -424,13 +424,107 @@ Singleton {
     Timer {
         interval: 4000
         repeat: true
-        running: root.windowed && !root.busy && root.loaded
+        running: root.loaded && !root.busy
         onTriggered: root.gather(st => {
-            if (root.busy || !root.windowed) return
+            if (root.busy) return
+            root.updateLayout(st)
+            if (!root.windowed || root.hasAbsent()) return
             root.snaps.windowed = root.snapshot(st)
             root.rememberClasses(root.snaps.windowed)
             root.save()
         })
+    }
+
+    // ───────────────────── мониторы: отключение и подключение ─────────────────────
+
+    property var layout: ({})        // монитор → { ws: [воркспейсы на нём], active: активный }
+    property var absent: ({})        // отключённые мониторы, пока не вернулись
+    property var parked: ({})        // address → запись окна, эвакуированного с отключённого монитора
+
+    function hasAbsent() { return Object.keys(absent).length > 0 }
+
+    // пока какой-то монитор отсутствует, раскладку не обновляем: она нужна для возврата
+    function updateLayout(st) {
+        if (hasAbsent()) return
+        const l = {}
+        for (const m of st.monitors)
+            l[m.name] = { ws: st.workspaces.filter(w => w.monitor === m.name && w.id > 0).map(w => w.id),
+                          active: m.activeWorkspace.id }
+        layout = l
+    }
+
+    function onMonitorRemoved(name) {
+        absent[name] = true
+        if (!windowed) return
+        waitTimer(700, evacuate)
+    }
+
+    // оконный режим: воркспейсы отключённого монитора переехали на оставшийся —
+    // собираем все окна на его активный воркспейс
+    function evacuate() {
+        if (busy) { waitTimer(500, evacuate); return }
+        busy = true
+        gather(st => { try {
+            const wins = snaps.windowed?.windows ?? ({})
+            const cmds = []
+            for (const c of managed(st)) {
+                const m = st.monitors.find(x => x.id === c.monitor)
+                if (!m || c.workspace.id < 0 || c.workspace.id === m.activeWorkspace.id) continue
+                const rec = wins[c.address] ?? record(c, st)
+                parked[c.address] = rec
+                const area = workArea(st, m.name)
+                const r = clampRect({ x: area.x + 40, y: area.y + 40, w: rec.w, h: rec.h }, area)
+                cmds.push(dMoveWs(c.address, m.activeWorkspace.id), dResize(c.address, r.w, r.h), dMoveXY(c.address, r.x, r.y))
+            }
+            runSteps([{ cmds: cmds }], () => { busy = false; Hyprland.refreshToplevels() })
+        } catch (e) { console.warn("winmode: evacuate failed:", e); busy = false } })
+    }
+
+    function onMonitorAdded(name) {
+        waitTimer(900, () => restoreMonitor(name))
+    }
+
+    // вернуть воркспейсы на «свои» мониторы и (в оконном режиме) окна на их монитор
+    function restoreMonitor(name) {
+        if (busy) { waitTimer(500, () => restoreMonitor(name)); return }
+        busy = true
+        gather(st => { try {
+            const steps = []
+            const back = []
+            for (const addr of Object.keys(parked)) {
+                const rec = parked[addr]
+                const c = st.clients.find(x => x.address === addr)
+                const l = layout[rec.mon]
+                if (!c || !l || rec.mon !== name) continue
+                const area = workArea(st, rec.mon)
+                const r = clampRect(rec, area)
+                back.push(dMoveWs(addr, l.active), dResize(addr, r.w, r.h), dMoveXY(addr, r.x, r.y))
+                delete parked[addr]
+            }
+            steps.push({ cmds: back }, { wait: 250 })
+            steps.push({ gather: st2 => {
+                const cmds = []
+                for (const mon of Object.keys(layout)) {
+                    if (!st2.monitors.some(m => m.name === mon)) continue
+                    for (const id of layout[mon].ws) {
+                        const cur = st2.workspaces.find(w => w.id === id)
+                        if (cur && cur.monitor !== mon) cmds.push("hl.dsp.workspace.move({ workspace = " + id + ", monitor = \"" + mon + "\" })")
+                    }
+                }
+                const focused = st2.monitors.find(m => m.focused)?.name ?? ""
+                const mons = Object.keys(layout).filter(m => st2.monitors.some(x => x.name === m))
+                    .sort((a, b) => (a === focused) - (b === focused))
+                // активный воркспейс каждого монитора: если он успел исчезнуть (пустой), создаём
+                // заново на этом мониторе, а не там, куда его отправит workspace-rule
+                for (const mon of mons) {
+                    const id = layout[mon].active
+                    cmds.push(dFocusMon(mon), dFocusWs(id),
+                              "hl.dsp.workspace.move({ workspace = " + id + ", monitor = \"" + mon + "\" })")
+                }
+                return [{ cmds: cmds }]
+            } })
+            runSteps(steps, () => { delete absent[name]; busy = false; Hyprland.refreshToplevels() })
+        } catch (e) { console.warn("winmode: restore failed:", e); delete absent[name]; busy = false } })
     }
 
     // QS перезапустился или Hyprland перечитал конфиг: winmode.lua сам читает winmode.mode,
@@ -440,6 +534,8 @@ Singleton {
         function onRawEvent(ev) {
             if (ev.name === "configreloaded" && root.loaded && !root.busy)
                 root.exec(["hyprctl", "eval", "WM_SET(" + (root.windowed ? "true" : "false") + ")"], () => {})
+            else if (ev.name === "monitorremovedv2" && root.loaded) root.onMonitorRemoved(ev.data.split(",")[1])
+            else if (ev.name === "monitoraddedv2" && root.loaded) root.onMonitorAdded(ev.data.split(",")[1])
             else if (ev.name === "minimized" && root.loaded) {
                 const p = ev.data.split(",")
                 p[1] === "1" ? root.minimize("0x" + p[0].replace(/^0x/, "")) : root.unminimize("0x" + p[0].replace(/^0x/, ""))

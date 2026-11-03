@@ -17,7 +17,6 @@ PanelWindow {
     readonly property real gapPx: 6
     readonly property real pad: Theme.padding * 0.6
     readonly property real pillH: base + pad * 2
-    readonly property int monId: Hyprland.monitorFor(screen)?.id ?? -1
 
     // lastIpcObject пуст, пока тополевелы не обновили вручную
     Component.onCompleted: Hyprland.refreshToplevels()
@@ -36,21 +35,14 @@ PanelWindow {
         const map = {}
         for (const t of Hyprland.toplevels.values) {
             const o = t.lastIpcObject
-            if (!o || !o.mapped || o.monitor !== dock.monId) continue
+            if (!o || !o.mapped) continue
             const wsn = o.workspace?.name ?? ""
             if (!(o.workspace?.id > 0 || wsn === "special:minimized")) continue
             const key = Windows.norm(o.class)
             if (!key) continue
-            const g = map[key] ?? (map[key] = { key: key, cls: o.class, wins: [], pinned: false })
+            const g = map[key] ?? (map[key] = { key: key, cls: o.class, wins: [] })
             g.wins.push({ addr: Windows.address(t), title: o.title, minimized: wsn === "special:minimized",
                           active: t.activated, focusId: o.focusHistoryID })
-        }
-        for (const id of Config.apps.pinned) {
-            const key = Windows.norm(id)
-            const e = DesktopEntries.byId(id) ?? DesktopEntries.heuristicLookup(id)
-            const hit = Object.values(map).find(g => Windows.matching([id, e?.startupClass, e?.name]).some(t => Windows.norm(t.lastIpcObject?.class) === g.key))
-            if (hit) { hit.pinned = true; hit.pinId = id }
-            else if (!map["pin:" + key]) map["pin:" + key] = { key: "pin:" + key, cls: id, wins: [], pinned: true, pinId: id }
         }
         const list = Object.values(map)
         for (const g of list) g.wins.sort((a, b) => a.focusId - b.focusId)
@@ -68,20 +60,19 @@ PanelWindow {
     onRawGroupsChanged: {
         const keys = rawGroups.map(g => g.key)
         const kept = order.filter(k => keys.includes(k))
-        const pinIdx = k => { const g = rawGroups.find(x => x.key === k); const i = Config.apps.pinned.indexOf(g?.pinId); return i < 0 ? 1e6 : i }
-        const fresh = keys.filter(k => !kept.includes(k)).sort((a, b) => pinIdx(a) - pinIdx(b))
+        const fresh = keys.filter(k => !kept.includes(k))
         if (fresh.length || kept.length !== order.length) order = kept.concat(fresh)
     }
 
     function entryFor(g) {
-        const id = g.pinId ?? g.cls
+        const id = g.cls
         DesktopEntries.applications.values
         return DesktopEntries.byId(id) ?? DesktopEntries.heuristicLookup(id) ?? DesktopEntries.heuristicLookup(g.cls)
     }
 
     function activate(g) {
         const e = entryFor(g)
-        if (g.wins.length === 0) { e?.execute(); return }
+        if (g.wins.length === 0) return
         const vis = g.wins
         const i = vis.findIndex(w => w.active)
         const target = vis.length === 1 ? vis[0] : (vis[(i + 1) % vis.length])
@@ -98,15 +89,12 @@ PanelWindow {
         const addr = w?.addr
         const sel = "window = \"address:" + addr + "\""
         const items = []
-        if (!w) items.push({ t: "dock.open", run: () => entryFor(g)?.execute() })
-        else {
+        if (w) {
             items.push({ t: w.minimized ? "dock.restore" : "dock.minimize", run: () => w.minimized ? WinMode.unminimize(addr) : WinMode.minimize(addr) })
             items.push({ t: "dock.maximize", run: () => Hyprland.dispatch("hl.dsp.window.fullscreen({ mode = \"maximized\", action = \"toggle\", " + sel + " })") })
             items.push({ t: "dock.fullscreen", run: () => Hyprland.dispatch("hl.dsp.window.fullscreen({ mode = \"fullscreen\", action = \"toggle\", " + sel + " })") })
             items.push({ t: "dock.close", danger: true, run: () => Hyprland.dispatch("hl.dsp.window.close({ " + sel + " })") })
         }
-        const id = g.pinId ?? entryFor(g)?.id
-        if (id) items.push({ t: g.pinned ? "dock.unpin" : "dock.pin", run: () => Config.togglePinnedApp(id) })
         return items
     }
 
@@ -133,12 +121,10 @@ PanelWindow {
         height: dock.hovering || dock.menuGroup ? dock.height : dock.pillH + Theme.barMargin
         visible: dock.groups.length > 0
 
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-            onPositionChanged: m => dock.mouseX = m.x
-            onExited: dock.mouseX = -1e4
+        // HoverHandler, а не MouseArea: иконки со своим hover не должны «съедать» положение курсора
+        HoverHandler {
+            onPointChanged: dock.mouseX = point.position.x
+            onHoveredChanged: if (!hovered) dock.mouseX = -1e4
         }
 
         Rectangle {

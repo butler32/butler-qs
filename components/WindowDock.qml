@@ -96,6 +96,12 @@ PanelWindow {
         return DesktopEntries.byId(id) ?? DesktopEntries.heuristicLookup(id) ?? DesktopEntries.heuristicLookup(g.cls)
     }
 
+    // иконка из .desktop или по имени класса; "" — такой иконки в теме нет (рисуем заглушку)
+    function iconFor(g) {
+        const name = entryFor(g)?.icon || g.cls.toLowerCase()
+        return Quickshell.iconPath(name, true)
+    }
+
     function activate(g) {
         const e = entryFor(g)
         if (g.wins.length === 0) return
@@ -188,11 +194,25 @@ PanelWindow {
                     height: dock.base * s
                     anchors.bottom: parent.bottom
 
+                    Rectangle {   // заглушка для приложений без иконки в теме
+                        anchors.fill: parent
+                        visible: dock.iconFor(cell.modelData) === ""
+                        radius: Theme.radiusItem
+                        color: Theme.surfaceAlt
+                        opacity: cell.allMin ? 0.45 : 1
+                        Label {
+                            anchors.centerIn: parent
+                            text: cell.modelData.cls.charAt(0).toUpperCase()
+                            font.pixelSize: parent.height * 0.5
+                            color: Theme.textDim
+                        }
+                    }
                     Image {
                         anchors.fill: parent
+                        visible: dock.iconFor(cell.modelData) !== ""
                         sourceSize: Qt.size(128, 128)
                         smooth: true
-                        source: Quickshell.iconPath(dock.entryFor(cell.modelData)?.icon ?? "", "application-x-executable")
+                        source: dock.iconFor(cell.modelData)
                         opacity: cell.allMin ? 0.45 : cell.modelData.wins.length ? 1 : 0.7
                     }
                     Rectangle {   // индикатор окон

@@ -529,9 +529,20 @@ Singleton {
 
     // QS перезапустился или Hyprland перечитал конфиг: winmode.lua сам читает winmode.mode,
     // а на всякий случай повторно ставим флаги
+    // новые окна приходят в Hyprland.toplevels с пустым lastIpcObject — без обновления
+    // док (и всё, что читает lastIpcObject) их не видит
+    Timer {
+        id: refreshTimer
+        interval: 120
+        onTriggered: Hyprland.refreshToplevels()
+    }
+    readonly property var refreshEvents: ["openwindow", "closewindow", "movewindowv2", "changefloatingmode",
+                                          "fullscreen", "windowtitlev2", "minimized", "activewindowv2"]
+
     Connections {
         target: Hyprland
         function onRawEvent(ev) {
+            if (root.refreshEvents.includes(ev.name)) refreshTimer.restart()
             if (ev.name === "configreloaded" && root.loaded && !root.busy)
                 root.exec(["hyprctl", "eval", "WM_SET(" + (root.windowed ? "true" : "false") + ")"], () => {})
             else if (ev.name === "monitorremovedv2" && root.loaded) root.onMonitorRemoved(ev.data.split(",")[1])

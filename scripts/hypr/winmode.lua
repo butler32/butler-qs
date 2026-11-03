@@ -41,9 +41,21 @@ hl.config({
 
 -- WM_LOCK = true блокирует бинды смены воркспейсов (обёртка WM_GUARD в keybindings.lua).
 WM_LOCK = false
+-- заголовки окон (hyprbars), стиль выбирает Quickshell; без плагина файл ничего не делает
+do
+    local path = os.getenv("HOME") .. "/.config/quickshell/butler/scripts/hypr/winframe.lua"
+    local f = io.open(path, "r")
+    if f then
+        f:close()
+        local ok, err = pcall(dofile, path)
+        if not ok then hl.notification.create({ text = "winframe: " .. tostring(err), timeout = 5000, icon = "error" }) end
+    end
+end
+
 function WM_SET(windowed)
     WM_LOCK = windowed and true or false
     WM_FLOAT:set_enabled(WM_LOCK)
+    if WM_FRAME_SET then WM_FRAME_SET(WM_LOCK) end
 end
 
 WM_SET(readMode() == "windowed")

@@ -291,7 +291,7 @@ Singleton {
                 const stayFloating = it.rec?.floating
                 if (!stayFloating) {
                     // dwindle сажает новое окно по позиции курсора: задаём сторону явно относительно соседа
-                    const nb = it.rec ? neighbour(it.rec, placed[it.ws] ?? []) : null
+                    const nb = it.rec ? neighbour(it.rec, placed[it.ws] ?? []) : splitLargest(placed[it.ws] ?? [])
                     if (nb) cmds.push(dFocusWin(nb.addr), "hl.dsp.layout(\"preselect " + nb.dir + "\")")
                     cmds.push(dFloat(a, false))
                     if (it.rec) (placed[it.ws] = placed[it.ws] ?? []).push(it.rec)
@@ -300,14 +300,16 @@ Singleton {
                 if (it.rec?.fs > 0) after.push(dFs(a, it.rec.fs, it.rec.fsc))
             }
             // размеры: два прохода, второй после того, как дерево осело
+            // на воркспейсах с новыми окнами размеры из снимка не возвращаем: иначе новое окно сожмётся
+            const dirty = new Set(items.filter(it => !it.rec).map(it => it.ws))
             const sizes = []
             for (const it of items) {
-                if (!it.rec) continue
+                if (!it.rec || (dirty.has(it.ws) && !it.rec.floating)) continue
                 sizes.push(dResize(it.c.address, it.rec.w, it.rec.h))
                 if (it.rec.floating) sizes.push(dMoveXY(it.c.address, it.rec.x, it.rec.y))
             }
             steps.push({ cmds: sizes }, { wait: 120 }, { cmds: sizes })
-            steps.push({ gather: st2 => verifySteps(st2, tiling) })
+            steps.push({ gather: st2 => verifySteps(st2, tiling, dirty) })
             const focus = items.filter(it => it.rec).sort((x, y) => y.rec.order - x.rec.order).map(it => dFocusWin(it.c.address))
             const fresh = items.filter(it => !it.rec).length
             if (fresh > 0) steps.push({ notify: fresh })
@@ -317,6 +319,13 @@ Singleton {
             if (tiling.activeAddr) steps.push({ cmds: [dFocusWin(tiling.activeAddr)] })
             runSteps(steps, () => { save(); busy = false })
         })
+    }
+
+    // окно без записи в снимке: делим пополам самое большое из уже стоящих (не позиция курсора)
+    function splitLargest(others) {
+        let best = null
+        for (const o of others) if (!best || o.w * o.h > best.w * best.h) best = o
+        return best ? { addr: best.addr, dir: best.w >= best.h ? "r" : "d" } : null
     }
 
     // ближайший сосед из уже посаженных окон и сторона, с которой к нему надо подсадить окно r
@@ -336,11 +345,11 @@ Singleton {
     }
 
     // третий проход только для тайловых окон, чей размер разошёлся со снимком
-    function verifySteps(st, tiling) {
+    function verifySteps(st, tiling, dirty) {
         const cmds = []
         for (const c of st.clients) {
             const r = tiling.windows[c.address]
-            if (!r || r.floating || c.floating) continue
+            if (!r || r.floating || c.floating || dirty.has(c.workspace.id)) continue
             if (Math.abs(c.size[0] - r.w) > 2 || Math.abs(c.size[1] - r.h) > 2) cmds.push(dResize(c.address, r.w, r.h))
         }
         return cmds.length ? [{ cmds: cmds }] : []

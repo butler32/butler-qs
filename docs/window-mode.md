@@ -111,6 +111,17 @@ Hyprland: scripts/hypr/winmode.lua → подключается последни
 4. **`hyprctl eval`** выполняет произвольный Lua, **значения не возвращает** (печатает `ok`), глобальные переменные живут между вызовами (`WM_TEST:set_enabled(...)` работает). Чтение состояния — через `hyprctl clients -j`.
 5. **Блокировка воркспейсов:** `Keybind:set_enabled` существует, но надёжнее глобальный флаг `WM_LOCK`: workspace-бинды оборачиваются функцией `ws_guard(dispatcher)` из `winmode.lua`, которая ничего не делает при `WM_LOCK`. Флаг теряется при reload, QS ставит его заново по `configreloaded`.
 
+## Установка на новой машине
+
+```
+scripts/install-deps.sh --optional        # в т.ч. meson/ninja для заголовков окон
+scripts/winmode/install.sh [--bars]       # без sudo, идемпотентно; --dry-run показывает шаги
+hyprctl reload
+qs -c butler ipc call winmode toggle      # или кнопка в баре
+```
+
+Скрипт: симлинк `configs/winmode.lua`, `require("configs.winmode")` последним в `hyprland.lua`, `WM_GUARD(...)` вокруг привязок смены воркспейсов в `keybindings.lua` (`patch-keybindings.js`; бинды с таблицей опций пропускает и сообщает номера строк — оберните вручную). Копии изменённых файлов — в `<state>/winmode-backups/`. `--bars` собирает hyprbars (`scripts/hyprbars/build.sh`); после обновления Hyprland повторите. `--uninstall` откатывает конфиг (плагин и состояние остаются). Виджет кнопки включается в Меню → Конфигурация → Виджеты бара.
+
 ## Источники
 
 - Hyprland wiki 0.56: Dispatchers, Window Rules, Lua events, IPC, Code snippets (minimize через special workspace).

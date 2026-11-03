@@ -48,6 +48,10 @@ FEATURES=(
 OPTIONAL=(
     openvpn                 # VPN section (see scripts/vpn/install.sh)
     playerctl               # media keys bindings
+    nodejs                  # window mode installer (scripts/winmode/install.sh)
+    meson                   # window title bars: scripts/winmode/install.sh --bars
+    ninja
+    git
 )
 SERVICES=(NetworkManager.service bluetooth.service upower.service power-profiles-daemon.service)
 
@@ -121,4 +125,5 @@ cat <<MSG
 done. Start the bar with:  qs -c butler -d
 Autostart (Hyprland, ~/.config/hypr/configs/autostart.lua):  qs -c butler -d
 VPN (optional): sudo $REPO_DIR/scripts/vpn/install.sh
+Window mode (optional): $REPO_DIR/scripts/winmode/install.sh [--bars]
 MSG
